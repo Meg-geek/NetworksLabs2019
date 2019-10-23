@@ -1,10 +1,12 @@
 package chatNode;
 
+import node.NodeInfo;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Date;
 
-public class ChatNodeInfo {
+public class ChatNodeInfo implements NodeInfo {
     private int port, parentPort;
     private InetAddress address, parentAddress;
     private Date lastActivity;
@@ -14,10 +16,12 @@ public class ChatNodeInfo {
         this.port = port;
     }
 
+    @Override
     public InetAddress getInetAddress(){
         return address;
     }
 
+    @Override
     public int getPort(){
         return port;
     }
