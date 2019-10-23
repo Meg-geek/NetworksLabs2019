@@ -3,17 +3,15 @@ package chatNode;
 import node.MessageType;
 import node.NodeMessage;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.UUID;
 
 /*
 сначала в любом сообщении uuid сообщения в строковом формате
-затем размер int MessageType, MessageType
+затем  int messageType,
 далее в зависимости от вида сообщения
 CONNECTION: ничего
 TEXT: длина сообщения(int) + сообщение
@@ -24,35 +22,29 @@ PERIOD CHECK: ничего
 
 public class ChatNodeMessage implements NodeMessage {
     private UUID uuid;
-    private MessageType messageType;
-    //if TEXT message or UID message or ip
-    private String text;
-    private String ip;
-    private int port;
+    private int messageType;
     private ByteArrayOutputStream message;
 
-    ChatNodeMessage(MessageType messageType) throws IOException {
+    ChatNodeMessage(int messageType) throws IOException {
         message = new ByteArrayOutputStream();
         uuid = UUID.randomUUID();
         message.write(uuid.toString().getBytes(Charset.forName(CHARSET_NAME)));
-        byte[] messageTypeBytes = messageType.toString().getBytes(Charset.forName(CHARSET_NAME));
-        message.write(messageTypeBytes.length);
-        message.write(messageTypeBytes);
+        message.write(messageType);
     }
 
-    ChatNodeMessage(MessageType messageType, String textMessage) throws IOException{
+    ChatNodeMessage(int messageType, String textMessage) throws IOException{
         this(messageType);
-        if(messageType.equals(MessageType.TEXT)){
+        if(messageType == TEXT){
             byte[] textByteArray = textMessage.getBytes(Charset.forName(CHARSET_NAME));
             message.write(textByteArray.length);
             message.write(textByteArray);
         }
-        if(messageType.equals(MessageType.ACK)){
+        if(messageType == ACK){
             message.write(textMessage.getBytes(Charset.forName(CHARSET_NAME)));
         }
     }
 
-    ChatNodeMessage(MessageType messageType, String ip, int port) throws IOException{
+    ChatNodeMessage(int messageType, String ip, int port) throws IOException{
         this(messageType);
         byte[] ipByteArray = ip.getBytes(Charset.forName(CHARSET_NAME));
         message.write(ipByteArray.length);
@@ -60,11 +52,18 @@ public class ChatNodeMessage implements NodeMessage {
         message.write(port);
     }
 
-    ChatNodeMessage(byte[] recvMessage) throws UnsupportedEncodingException {
+    ChatNodeMessage(byte[] recvMessage) throws IOException {
         int uuidSize = UUID.randomUUID().toString().getBytes(Charset.forName(CHARSET_NAME)).length;
-        ByteArrayInputStream recvMessageStream = new ByteArrayInputStream(recvMessage);
-        uuid = UUID.fromString(new String(Arrays.copyOfRange(recvMessage, 0, uuidSize), CHARSET_NAME));
-
+        //нужно ли учитывать, что не все байты дошли ?
+       // ByteArrayInputStream recvMessageStream = new ByteArrayInputStream(recvMessage);
+        DataInputStream recvMessageStream = new DataInputStream(new ByteArrayInputStream(recvMessage));
+        byte[] uuidByteArray = new byte[uuidSize];
+        //uuid = UUID.fromString(new String(Arrays.copyOfRange(recvMessage, 0, uuidSize), CHARSET_NAME));
+        recvMessageStream.readFully(uuidByteArray, 0, uuidSize);
+        uuid = UUID.fromString(new String(uuidByteArray, CHARSET_NAME));
+        messageType = recvMessageStream.readInt();
+        message = new ByteArrayOutputStream();
+        message.write(recvMessage);
     }
 
     @Override
@@ -75,5 +74,10 @@ public class ChatNodeMessage implements NodeMessage {
     @Override
     public String getUUID() {
         return uuid.toString();
+    }
+
+    @Override
+    public int getMessageType(){
+        return messageType;
     }
 }
