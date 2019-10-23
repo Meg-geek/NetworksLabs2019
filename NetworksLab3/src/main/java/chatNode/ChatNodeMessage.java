@@ -1,12 +1,9 @@
 package chatNode;
 
-import node.MessageType;
 import node.NodeMessage;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.UUID;
 
 /*
@@ -23,52 +20,61 @@ PERIOD CHECK: ничего
 public class ChatNodeMessage implements NodeMessage {
     private UUID uuid;
     private int messageType;
-    private ByteArrayOutputStream message;
+    private ByteArrayOutputStream messageByteArrayStream;
+    private DataOutputStream messageDataStream;
 
-    ChatNodeMessage(int messageType) throws IOException {
-        message = new ByteArrayOutputStream();
+    public ChatNodeMessage(int messageType) throws IOException {
+        //message = new ByteArrayOutputStream();
+        messageByteArrayStream = new ByteArrayOutputStream();
+        messageDataStream = new DataOutputStream(messageByteArrayStream);
         uuid = UUID.randomUUID();
-        message.write(uuid.toString().getBytes(Charset.forName(CHARSET_NAME)));
-        message.write(messageType);
+        this.messageType = messageType;
+        messageDataStream.write(uuid.toString().getBytes(Charset.forName(CHARSET_NAME)));
+        messageDataStream.writeInt(messageType);
+        messageDataStream.flush();
     }
 
     ChatNodeMessage(int messageType, String textMessage) throws IOException{
         this(messageType);
         if(messageType == TEXT){
             byte[] textByteArray = textMessage.getBytes(Charset.forName(CHARSET_NAME));
-            message.write(textByteArray.length);
-            message.write(textByteArray);
+            messageDataStream.writeInt(textByteArray.length);
+            messageDataStream.write(textByteArray);
         }
         if(messageType == ACK){
-            message.write(textMessage.getBytes(Charset.forName(CHARSET_NAME)));
+            //to write uuid
+            messageDataStream.write(textMessage.getBytes(Charset.forName(CHARSET_NAME)));
         }
+        messageDataStream.flush();
     }
 
     ChatNodeMessage(int messageType, String ip, int port) throws IOException{
         this(messageType);
         byte[] ipByteArray = ip.getBytes(Charset.forName(CHARSET_NAME));
-        message.write(ipByteArray.length);
-        message.write(ipByteArray);
-        message.write(port);
+        messageDataStream.writeInt(ipByteArray.length);
+        messageDataStream.write(ipByteArray);
+        messageDataStream.writeInt(port);
+        messageDataStream.flush();
     }
 
-    ChatNodeMessage(byte[] recvMessage) throws IOException {
+    public ChatNodeMessage(byte[] recvMessage) throws IOException {
         int uuidSize = UUID.randomUUID().toString().getBytes(Charset.forName(CHARSET_NAME)).length;
         //нужно ли учитывать, что не все байты дошли ?
-       // ByteArrayInputStream recvMessageStream = new ByteArrayInputStream(recvMessage);
         DataInputStream recvMessageStream = new DataInputStream(new ByteArrayInputStream(recvMessage));
         byte[] uuidByteArray = new byte[uuidSize];
         //uuid = UUID.fromString(new String(Arrays.copyOfRange(recvMessage, 0, uuidSize), CHARSET_NAME));
         recvMessageStream.readFully(uuidByteArray, 0, uuidSize);
         uuid = UUID.fromString(new String(uuidByteArray, CHARSET_NAME));
         messageType = recvMessageStream.readInt();
-        message = new ByteArrayOutputStream();
-        message.write(recvMessage);
+        messageByteArrayStream = new ByteArrayOutputStream();
+        messageDataStream = new DataOutputStream(messageByteArrayStream);
+        messageDataStream.write(recvMessage);
+        messageDataStream.flush();
     }
 
     @Override
     public byte[] toBytes() {
-        return message.toByteArray();
+        return messageByteArrayStream.toByteArray();
     }
 
     @Override
