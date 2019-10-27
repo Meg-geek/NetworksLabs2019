@@ -1,4 +1,4 @@
-package chatNode;
+package chatNode.helpers;
 
 import chatNode.chatNodeMessages.ChatNodeMessage;
 import node.NodeInfo;
@@ -14,7 +14,7 @@ public class SendTask implements Runnable {
     private DatagramSocket socket;
     private List<NodeInfo> nodesInfoList;
 
-    public SendTask(DatagramSocket socket, NodeMessage message, List<NodeInfo> nodesInfo){
+    SendTask(DatagramSocket socket, NodeMessage message, List<NodeInfo> nodesInfo){
             messageToSend = message;
             this.socket = socket;
             nodesInfoList = nodesInfo;
