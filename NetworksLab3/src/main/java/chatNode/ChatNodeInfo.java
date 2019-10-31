@@ -26,26 +26,39 @@ public class ChatNodeInfo implements NodeInfo {
         return port;
     }
 
+    @Override
     public Date getLastActivity() {
         return lastActivity;
     }
 
+    @Override
+    public boolean replaceNode() {
+        if(parentAddress == null ||
+            address.equals(parentAddress)){
+            return false;
+        }
+        address = parentAddress;
+        port = parentPort;
+        return true;
+    }
+
+    @Override
     public void refreshActivity(){
         lastActivity = new Date();
     }
 
-    public void setParentPort(int parentPort){
+    @Override
+    public void setParent(String parentIP, int parentPort) throws UnknownHostException{
+        parentAddress = InetAddress.getByName(parentIP);
         this.parentPort = parentPort;
     }
 
+    @Override
     public int getParentPort(){
         return parentPort;
     }
 
-    public void setParentAddress(String ip) throws UnknownHostException{
-        parentAddress = InetAddress.getByName(ip);
-    }
-
+    @Override
     public InetAddress getParentAddress(){
         return parentAddress;
     }
