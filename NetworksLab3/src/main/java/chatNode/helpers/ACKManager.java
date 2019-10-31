@@ -15,10 +15,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 то повторно отправляется сообщение
  */
 public class ACKManager extends TimerTask {
-    //private List<ACKNodesElement> ackNodesList = new CopyOnWriteArrayList<>();
-    //private Queue<NodeMessage> sentMessagesQueue;
     private Map<NodeMessage, List<NodeInfo>> messageNodesListMap = new ConcurrentHashMap<>();
     private Map<NodeMessage, NodeInfo> messageNodeMap = new ConcurrentHashMap<>();
+    private Map <String, NodeMessage> uuidMessage = new ConcurrentHashMap<>();
     private MessagesNode chatNode;
 
     public ACKManager(MessagesNode node){
@@ -27,73 +26,61 @@ public class ACKManager extends TimerTask {
 
     @Override
     public void run() {
+        long nowTime = new Date().getTime();
+        List<NodeMessage> messagesList = new ArrayList<>();
         for(Map.Entry<NodeMessage, NodeInfo> messageNodeInfoEntry : messageNodeMap.entrySet()){
-            chatNode.sendMessage(messageNodeInfoEntry.getKey(), messageNodeInfoEntry.getValue());
+            if(nowTime - messageNodeInfoEntry.getValue().getLastActivity().getTime() > MessagesNode.TIMEOUT_MILSEC){
+                messagesList.add(messageNodeInfoEntry.getKey());
+            } else {
+                chatNode.sendMessage(messageNodeInfoEntry.getKey(), messageNodeInfoEntry.getValue());
+            }
+        }
+        for(NodeMessage message : messagesList){
+            messageNodeMap.remove(message);
+            uuidMessage.remove(message.getUUID());
         }
         for(Map.Entry<NodeMessage, List<NodeInfo>> messageListEntry : messageNodesListMap.entrySet()){
+            refreshNodeInfoList(messageListEntry.getValue());
             chatNode.sendMessage(messageListEntry.getKey(), messageListEntry.getValue());
         }
     }
 
-    public void addACKRequest(NodeMessage message, List<NodeInfo> nodeInfoList){
-        //ackNodesList.add(new ACKNodesElement(message, nodeInfoList));
+    private void refreshNodeInfoList(List<NodeInfo> nodeInfoList){
+        long nowTime = new Date().getTime();
+        List<NodeInfo> nodesToRemove = new ArrayList<>();
+        for(NodeInfo nodeInfo: nodeInfoList){
+            if(nowTime - nodeInfo.getLastActivity().getTime() > MessagesNode.TIMEOUT_MILSEC){
+                nodesToRemove.add(nodeInfo);
+            }
+        }
+        for(NodeInfo nodeInfoRemove : nodesToRemove){
+            nodeInfoList.remove(nodeInfoRemove);
+        }
     }
 
-    public void ackRecieved(String messageUUID, String ip, int port){
-
+    public void ackRecieved(String messageUUID, NodeInfo nodeInfo){
+        NodeMessage message = uuidMessage.get(messageUUID);
+        if(message == null){
+            return;
+        }
+        if(messageNodeMap.containsKey(message)) {
+            messageNodeMap.remove(message);
+            uuidMessage.remove(messageUUID);
+        }
+        if(messageNodesListMap.containsKey(message)){
+            messageNodesListMap.get(message).remove(nodeInfo);
+        }
     }
 
     public void addMessage(NodeMessage message, NodeInfo nodeInfo){
         messageNodeMap.put(message, nodeInfo);
+        uuidMessage.put(message.getUUID(), message);
     }
 
     public void addMessage(NodeMessage message, List<NodeInfo> nodeInfoList){
         List<NodeInfo> nodesList = new ArrayList<>();
         Collections.copy(nodesList, nodeInfoList);
         messageNodesListMap.put(message, nodesList);
+        uuidMessage.put(message.getUUID(), message);
     }
 }
-
-/*
-class Pair<K,V>{
-    private K key;
-    private V value;
-
-    Pair(K key, V value){
-        this.key = key;
-        this.value = value;
-    }
-
-
-}
-*/
-
-/*
-class ACKNodesElement{
-    //private String uuid;
-    private NodeMessage message;
-    private List<BasicNodeInfo> needACKNodesList;
-
-    ACKNodesElement(NodeMessage message, List<NodeInfo> nodesInfoList){
-        this.message = message;
-       // needACKNodesList = nodesInfoList.subList(0, nodesInfoList.size());
-    }
-
-   // boolean hasNodes(){
-     //   return !needACKNodesList.isEmpty();
-    //}
-
-   // NodeMessage
-
-    List<NodeInfo> getNodesList(){
-       // return needACKNodesList;
-        return null;
-    }
-
-    void removeNodeInfo(NodeInfo nodeInfo){
-        if(needACKNodesList.contains(nodeInfo)){
-            needACKNodesList.remove(nodeInfo);
-        }
-    }
-}
-*/
