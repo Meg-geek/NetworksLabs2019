@@ -4,8 +4,8 @@ import node.NodeInfo;
 import node.nodeMessages.NodeMessage;
 
 import java.net.DatagramSocket;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,8 +23,6 @@ public class MessageSender {
     }
 
     public void sendMessage(NodeMessage message, NodeInfo nodeInfo){
-        List <NodeInfo> nodesList = new ArrayList<>();
-        nodesList.add(nodeInfo);
-        sendThreads.submit(new SendTask(socket, message, nodesList));
+        sendThreads.submit(new SendTask(socket, message, nodeInfo));
     }
 }

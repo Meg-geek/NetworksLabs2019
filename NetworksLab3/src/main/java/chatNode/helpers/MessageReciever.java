@@ -1,6 +1,9 @@
-package chatNode;
+package chatNode.helpers;
 
-import node.NodeMessage;
+import chatNode.ChatNode;
+import chatNode.chatNodeMessages.ChatNodeMessage;
+import node.MessagesNode;
+import node.nodeMessages.NodeMessage;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -8,10 +11,10 @@ import java.net.DatagramSocket;
 
 public class MessageReciever implements Runnable {
     private DatagramSocket socket;
-    private ChatNode chatNode;
+    private MessagesNode chatNode;
     private boolean running = true;
 
-    public MessageReciever(DatagramSocket socket, ChatNode chatNode){
+    public MessageReciever(DatagramSocket socket, MessagesNode chatNode){
         this.socket = socket;
         this.chatNode = chatNode;
     }
@@ -23,7 +26,10 @@ public class MessageReciever implements Runnable {
                 DatagramPacket packet = new DatagramPacket(
                         new byte[NodeMessage.MAX_MESSAGE_LENGTH], NodeMessage.MAX_MESSAGE_LENGTH);
                 socket.receive(packet);
-                chatNode.addRecvMessage(new ChatNodeMessage(packet.getData()));
+                if (Math.random()*100 < chatNode.getLossPerc()){
+                    chatNode.addRecvMessage(new ChatNodeMessage(packet.getData(),
+                            packet.getAddress().getHostAddress(), packet.getPort()));
+                }
             } catch(IOException ex){
                 running = false;
                 ex.printStackTrace();

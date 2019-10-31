@@ -1,12 +1,12 @@
 package chatNode.helpers;
 
-import chatNode.chatNodeMessages.ChatNodeMessage;
 import node.NodeInfo;
 import node.nodeMessages.NodeMessage;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SendTask implements Runnable {
@@ -18,6 +18,13 @@ public class SendTask implements Runnable {
             messageToSend = message;
             this.socket = socket;
             nodesInfoList = nodesInfo;
+    }
+
+    SendTask(DatagramSocket socket, NodeMessage message, NodeInfo nodeInfo){
+        messageToSend = message;
+        this.socket = socket;
+        nodesInfoList = new ArrayList<>();
+        nodesInfoList.add(nodeInfo);
     }
 
     @Override
