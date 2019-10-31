@@ -20,13 +20,14 @@ PERIOD CHECK: ничего
 public class ChatNodeMessage implements NodeMessage {
     private UUID uuid;
     private int messageType;
-    private ByteArrayOutputStream messageByteArrayStream;
-    private DataOutputStream messageDataStream;
+    private String text;
+    private String ip, parentIP;
+    private int port, parentPORT;
+    private ByteArrayOutputStream messageByteArrayStream = new ByteArrayOutputStream();
+    private DataOutputStream messageDataStream = new DataOutputStream(messageByteArrayStream);
+    private static int UUID_SIZE = UUID.randomUUID().toString().getBytes(Charset.forName(CHARSET_NAME)).length;
 
     public ChatNodeMessage(int messageType) throws IOException {
-        //message = new ByteArrayOutputStream();
-        messageByteArrayStream = new ByteArrayOutputStream();
-        messageDataStream = new DataOutputStream(messageByteArrayStream);
         uuid = UUID.randomUUID();
         this.messageType = messageType;
         messageDataStream.write(uuid.toString().getBytes(Charset.forName(CHARSET_NAME)));
@@ -34,42 +35,69 @@ public class ChatNodeMessage implements NodeMessage {
         messageDataStream.flush();
     }
 
-    ChatNodeMessage(int messageType, String textMessage) throws IOException{
+    //for ACK and TEXT messages
+    public ChatNodeMessage(int messageType, String text) throws IOException{
         this(messageType);
         if(messageType == TEXT){
-            byte[] textByteArray = textMessage.getBytes(Charset.forName(CHARSET_NAME));
+            byte[] textByteArray = text.getBytes(Charset.forName(CHARSET_NAME));
             messageDataStream.writeInt(textByteArray.length);
             messageDataStream.write(textByteArray);
         }
         if(messageType == ACK){
             //to write uuid
-            messageDataStream.write(textMessage.getBytes(Charset.forName(CHARSET_NAME)));
+            messageDataStream.write(text.getBytes(Charset.forName(CHARSET_NAME)));
         }
+        this.text = text;
         messageDataStream.flush();
     }
 
-    ChatNodeMessage(int messageType, String ip, int port) throws IOException{
+    //for alternative messages
+    public ChatNodeMessage(int messageType, String parentIP, int parentPort) throws IOException{
         this(messageType);
-        byte[] ipByteArray = ip.getBytes(Charset.forName(CHARSET_NAME));
+        byte[] ipByteArray = parentIP.getBytes(Charset.forName(CHARSET_NAME));
         messageDataStream.writeInt(ipByteArray.length);
         messageDataStream.write(ipByteArray);
-        messageDataStream.writeInt(port);
+        messageDataStream.writeInt(parentPort);
+        messageDataStream.flush();
+        this.parentIP = parentIP;
+        this.parentPORT = parentPort;
         messageDataStream.flush();
     }
 
-    public ChatNodeMessage(byte[] recvMessage) throws IOException {
-        int uuidSize = UUID.randomUUID().toString().getBytes(Charset.forName(CHARSET_NAME)).length;
-        //нужно ли учитывать, что не все байты дошли ?
-        DataInputStream recvMessageStream = new DataInputStream(new ByteArrayInputStream(recvMessage));
-        byte[] uuidByteArray = new byte[uuidSize];
-        //uuid = UUID.fromString(new String(Arrays.copyOfRange(recvMessage, 0, uuidSize), CHARSET_NAME));
-        recvMessageStream.readFully(uuidByteArray, 0, uuidSize);
-        uuid = UUID.fromString(new String(uuidByteArray, CHARSET_NAME));
-        messageType = recvMessageStream.readInt();
-        messageByteArrayStream = new ByteArrayOutputStream();
-        messageDataStream = new DataOutputStream(messageByteArrayStream);
+    //for recv messages
+    public ChatNodeMessage(byte[] recvMessage, String ip, int port) throws IOException {
         messageDataStream.write(recvMessage);
         messageDataStream.flush();
+        this.ip = ip;
+        this.port = port;
+        DataInputStream recvMessageStream = new DataInputStream(new ByteArrayInputStream(recvMessage));
+        byte[] uuidByteArray = new byte[UUID_SIZE];
+        recvMessageStream.readFully(uuidByteArray, 0, UUID_SIZE);
+        uuid = UUID.fromString(new String(uuidByteArray, CHARSET_NAME));
+        messageType = recvMessageStream.readInt();
+        switch(messageType){
+            case CONNECTION :
+                break;
+            case PERIOD_CHECK:
+                break;
+            case ACK:
+                recvMessageStream.readFully(uuidByteArray, 0, UUID_SIZE);
+                text = new String(uuidByteArray, CHARSET_NAME);
+                break;
+            case TEXT:
+                int length = recvMessageStream.readInt();
+                byte[] textByteArray = new byte[length];
+                recvMessageStream.readFully(textByteArray, 0, length);
+                text = new String(textByteArray, CHARSET_NAME);
+                break;
+            case ALTERNATIVE:
+                int ipLength = recvMessageStream.readInt();
+                byte[] parentIPbyteArray = new byte[ipLength];
+                recvMessageStream.readFully(parentIPbyteArray, 0, ipLength);
+                parentIP = new String(parentIPbyteArray, CHARSET_NAME);
+                parentPORT = recvMessageStream.readInt();
+                break;
+        }
     }
 
     @Override
@@ -85,5 +113,47 @@ public class ChatNodeMessage implements NodeMessage {
     @Override
     public int getMessageType(){
         return messageType;
+    }
+
+    @Override
+    public int getPort() {
+        return port;
+    }
+
+    @Override
+    public String getIP() {
+        return ip;
+    }
+
+    @Override
+    public String getACKUUID() {
+        if(messageType == ACK){
+            return text;
+        }
+        return null;
+    }
+
+    @Override
+    public String getParentIP() {
+        if(messageType == ALTERNATIVE){
+            return parentIP;
+        }
+        return null;
+    }
+
+    @Override
+    public int getParentPort() {
+        if(messageType == ALTERNATIVE){
+            return parentPORT;
+        }
+        return 0;
+    }
+
+    @Override
+    public String getText(){
+        if(messageType == TEXT){
+            return text;
+        }
+        return null;
     }
 }
