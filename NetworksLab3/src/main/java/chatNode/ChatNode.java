@@ -21,11 +21,9 @@ public class ChatNode implements MessagesNode {
     private DatagramSocket socket;
     private List<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
     private NodeInfo alernativeNode;
-   // private Queue<NodeMessage> sentMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<NodeMessage> recvMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<String> printMessagesUUIDQueue = new ArrayDeque<>(MESSAGE_CAPACITY);
     private final int SENDER_THREADS_AMOUNT = 3;
-    //private ExecutorService threadPool = Executors.newFixedThreadPool(THREADS_AMOUNT);
     private MessageSender messageSender;
     private boolean started = false;
     private final int THREADS_AMOUNT = 2;
@@ -35,6 +33,7 @@ public class ChatNode implements MessagesNode {
     private Thread recieveThread;
     private final int CONNECTION_CONTROLLER_DELAY = TIMEOUT_MILSEC*2;
     private final int ACK_MANAGER_DELAY = 500;
+    private ACKManager ACKManager = new ACKManager(this);
 
     public ChatNode(String nodeName, int port, int lossPerc) throws SocketException {
         this.nodeName = nodeName;
@@ -62,7 +61,7 @@ public class ChatNode implements MessagesNode {
                 INIT_DELAY, CONSOLE_LISTENER_DELAY, TimeUnit.MILLISECONDS);
         scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConnectionController(nearNodesInfoList),
                 INIT_DELAY, CONNECTION_CONTROLLER_DELAY, TimeUnit.MILLISECONDS);
-        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ACKManager(this),
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(ACKManager,
                 INIT_DELAY, ACK_MANAGER_DELAY, TimeUnit.MILLISECONDS);
     }
 
@@ -88,41 +87,53 @@ public class ChatNode implements MessagesNode {
         }
     }
 
-    /*
-        private void handleMessage(NodeMessage message){
-            switch(message.getMessageType()){
-                case NodeMessage.CONNECTION:
-                    addNode(message.getIP(), message.getPort());
-                    break;
-                case NodeMessage.TEXT:
-                    printMessage((TextNodeMessage) message);
-                    break;
-                case NodeMessage.ACK:
-                    break;
-                case NodeMessage.ALTERNATIVE:
-                    setNodeParent(((AlternativeNodeMessage)message).getIP(),
-                            ((AlternativeNodeMessage)message).getParentIP(),
-                            ((AlternativeNodeMessage)message).getParentPort());
-                    break;
-                case NodeMessage.PERIOD_CHECK:
-                    refreshNodeActivity(((ConnectionNodeMessage)message).getIP());
-                    break;
-            }
+    private void handleMessage(NodeMessage message){
+        switch(message.getMessageType()){
+            case NodeMessage.CONNECTION:
+                addNode(message.getIP(), message.getPort());
+                break;
+            case NodeMessage.TEXT:
+                printMessage(message);
+                break;
+            case NodeMessage.ACK:
+                ackRecv(message.getACKUUID(), message.getIP(), message.getPort());
+                break;
+            case NodeMessage.ALTERNATIVE:
+                setNodeParent(message.getIP(),
+                        message.getPort(),
+                        message.getParentIP(),
+                        message.getParentPort());
+                break;
+            case NodeMessage.PERIOD_CHECK:
+                refreshNodeActivity(message.getIP(), message.getPort());
+                break;
         }
-    */
+    }
+
+    private void ackRecv(String messageUUID, String ip, int port){
+        NodeInfo nodeInfo = findNode(ip, port);
+        if(nodeInfo != null){
+            ACKManager.ackRecieved(messageUUID, nodeInfo);
+        }
+    }
+
     @Override
     public void addRecvMessage(NodeMessage message){
         if(recvMessageQueue.size() == MESSAGE_CAPACITY){
             recvMessageQueue.poll();
         }
-        recvMessageQueue.add(message);
-        //handleMessage(message);
-        sendACK(message);
+        try {
+            sendACK(message);
+            recvMessageQueue.add(message);
+            handleMessage(message);
+        } catch(IOException ex){
+            //ex.printStackTrace();
+        }
     }
 
-    private void sendACK(NodeMessage message){
-      //  NodeMessage ACKmessage = new ChatNodeMessage();
-        //messageSender.sendMessage(ACKmessage, nearNodesInfoList);
+    private void sendACK(NodeMessage message) throws IOException{
+        NodeMessage ACKmessage = new ChatNodeMessage(NodeMessage.ACK, message.getUUID());
+        messageSender.sendMessage(ACKmessage, nearNodesInfoList);
     }
 
     private void printMessage(NodeMessage message){
@@ -145,26 +156,34 @@ public class ChatNode implements MessagesNode {
         }
     }
 
-    private void setNodeParent(String ip, String parentIP, int parentPort){
+    private NodeInfo findNode(String ip, int port){
         NodeInfo nodeInfo = null;
         Iterator<NodeInfo> iterator = nearNodesInfoList.iterator();
         while(iterator.hasNext() && nodeInfo == null){
-            if (iterator.next().getInetAddress().getHostAddress().equals(ip)){
+            if (iterator.next().getInetAddress().getHostAddress().equals(ip)
+                && iterator.next().getPort() == port){
                 nodeInfo = iterator.next();
             }
         }
+        return nodeInfo;
+    }
+
+    private void setNodeParent(String ip, int port, String parentIP, int parentPort){
+        NodeInfo nodeInfo = findNode(ip, port);
         try{
-            nodeInfo.setParent(parentIP, parentPort);
+            if(nodeInfo != null){
+                nodeInfo.setParent(parentIP, parentPort);
+            }
         } catch(UnknownHostException ex) {
             //log?
         }
     }
 
-    private void refreshNodeActivity(String ip){
-        Iterator<NodeInfo> iterator = nearNodesInfoList.iterator();
-        while(iterator.hasNext() && !iterator.next().getInetAddress().getHostAddress().equals(ip)){
+    private void refreshNodeActivity(String ip, int port){
+        NodeInfo nodeInfo = findNode(ip, port);
+        if(nodeInfo != null){
+            nodeInfo.refreshActivity();
         }
-        iterator.next().refreshActivity();
     }
 
     @Override
