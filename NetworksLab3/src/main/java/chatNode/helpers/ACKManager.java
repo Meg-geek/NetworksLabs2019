@@ -1,20 +1,18 @@
 package chatNode.helpers;
 
 import node.MessagesNode;
-import node.Node;
 import node.NodeInfo;
-import node.nodeMessages.NodeMessage;
+import node.NodeMessage;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 //or Runnable?
 /*
 просматривает, какие ack получены. если ack не получен,
 то повторно отправляется сообщение
  */
-public class ACKManager extends TimerTask {
+public class ACKManager implements Runnable {
     private Map<NodeMessage, List<NodeInfo>> messageNodesListMap = new ConcurrentHashMap<>();
     private Map<NodeMessage, NodeInfo> messageNodeMap = new ConcurrentHashMap<>();
     private Map <String, NodeMessage> uuidMessage = new ConcurrentHashMap<>();

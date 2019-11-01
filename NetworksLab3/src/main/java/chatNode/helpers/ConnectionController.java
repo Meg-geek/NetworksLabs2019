@@ -8,7 +8,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimerTask;
 
-public class ConnectionController extends TimerTask {
+public class ConnectionController implements Runnable {
     private List<NodeInfo> nodesInfoList;
 
     public ConnectionController(List<NodeInfo> nodesInfoList){
