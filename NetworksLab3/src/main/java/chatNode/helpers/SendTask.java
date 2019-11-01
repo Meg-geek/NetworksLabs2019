@@ -1,7 +1,7 @@
 package chatNode.helpers;
 
 import node.NodeInfo;
-import node.nodeMessages.NodeMessage;
+import node.NodeMessage;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

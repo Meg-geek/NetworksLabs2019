@@ -8,7 +8,7 @@ import java.util.Date;
 
 public class ChatNodeInfo implements NodeInfo {
     private int port, parentPort;
-    private InetAddress address, parentAddress;
+    private InetAddress address, parentAddress = null;
     private Date lastActivity;
 
     ChatNodeInfo(String ip, int port) throws UnknownHostException {

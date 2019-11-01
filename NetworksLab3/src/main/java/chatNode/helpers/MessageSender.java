@@ -1,11 +1,10 @@
 package chatNode.helpers;
 
 import node.NodeInfo;
-import node.nodeMessages.NodeMessage;
+import node.NodeMessage;
 
 import java.net.DatagramSocket;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
