@@ -1,86 +1,131 @@
 package chatNode;
 
-import node.Node;
+import chatNode.helpers.*;
+import node.MessagesNode;
 import node.NodeInfo;
-import node.nodeMessages.AlternativeNodeMessage;
-import node.nodeMessages.ConnectionNodeMessage;
-import node.nodeMessages.NodeMessage;
-import node.nodeMessages.TextNodeMessage;
+import node.NodeMessage;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayDeque;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
-public class ChatNode implements Node {
+public class ChatNode implements MessagesNode {
     private String nodeName;
     private int lossPerc;
     private DatagramSocket socket;
-    private List<NodeInfo> nearNodesInfoList;
+    private List<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
     private NodeInfo alernativeNode;
-    private Queue<NodeMessage> sentMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
+   // private Queue<NodeMessage> sentMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<NodeMessage> recvMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<String> printMessagesUUIDQueue = new ArrayDeque<>(MESSAGE_CAPACITY);
-    private final int THREADS_AMOUNT = 3;
-    private ExecutorService threadPool = Executors.newFixedThreadPool(THREADS_AMOUNT);
+    private final int SENDER_THREADS_AMOUNT = 3;
+    //private ExecutorService threadPool = Executors.newFixedThreadPool(THREADS_AMOUNT);
+    private MessageSender messageSender;
+    private boolean started = false;
+    private final int THREADS_AMOUNT = 2;
+    private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
+    private final int INIT_DELAY = 0;
+    private final int CONSOLE_LISTENER_DELAY = 200;
+    private Thread recieveThread;
+    private final int CONNECTION_CONTROLLER_DELAY = TIMEOUT_MILSEC*2;
+    private final int ACK_MANAGER_DELAY = 500;
 
     public ChatNode(String nodeName, int port, int lossPerc) throws SocketException {
         this.nodeName = nodeName;
         this.lossPerc = lossPerc;
         socket = new DatagramSocket(port);
-        nearNodesInfoList = new CopyOnWriteArrayList<>();
+        messageSender = new MessageSender(socket, SENDER_THREADS_AMOUNT);
     }
 
     public ChatNode(String nodeName, int port, int lossPerc, String parentIP, int parentPort) throws IOException {
         this(nodeName, port, lossPerc);
         alernativeNode = new ChatNodeInfo(parentIP, parentPort);
         nearNodesInfoList.add(alernativeNode);
-        //byte[] buf = BigInteger.valueOf(NodeMessage.CONNECTION).toByteArray();
-        //socket.send(new DatagramPacket(buf, buf.length,  alernativeNode.getInetAddress(), alernativeNode.getPort()));
-        //System.out.println("length " + buf.length + " " + BigInteger.valueOf(buf[0]));
+        sendMessage(new ChatNodeMessage(NodeMessage.CONNECTION), alernativeNode);
     }
 
     //private void recieveMessages(){ }
 
     public void start() {
-
+        if(started){
+            return;
+        }
+        started = true;
+        recieveThread = new Thread(new MessageReciever(socket, this));
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConsoleListener(this),
+                INIT_DELAY, CONSOLE_LISTENER_DELAY, TimeUnit.MILLISECONDS);
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConnectionController(nearNodesInfoList),
+                INIT_DELAY, CONNECTION_CONTROLLER_DELAY, TimeUnit.MILLISECONDS);
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ACKManager(this),
+                INIT_DELAY, ACK_MANAGER_DELAY, TimeUnit.MILLISECONDS);
     }
 
+    @Override
+    public void sendMessage(NodeMessage message, NodeInfo nodeInfo) {
+        if(message != null && nodeInfo != null){
+            messageSender.sendMessage(message, nodeInfo);
+        }
+    }
+
+    @Override
+    public void sendMessage(NodeMessage message, List<NodeInfo> nodesInfoList) {
+        if(message != null && nearNodesInfoList != null &&
+            nearNodesInfoList.size() > 0){
+            messageSender.sendMessage(message, nodesInfoList);
+        }
+    }
+
+    @Override
+    public void sendMessage(NodeMessage message) {
+        if(message != null){
+            messageSender.sendMessage(message, nearNodesInfoList);
+        }
+    }
+
+    /*
+        private void handleMessage(NodeMessage message){
+            switch(message.getMessageType()){
+                case NodeMessage.CONNECTION:
+                    addNode(message.getIP(), message.getPort());
+                    break;
+                case NodeMessage.TEXT:
+                    printMessage((TextNodeMessage) message);
+                    break;
+                case NodeMessage.ACK:
+                    break;
+                case NodeMessage.ALTERNATIVE:
+                    setNodeParent(((AlternativeNodeMessage)message).getIP(),
+                            ((AlternativeNodeMessage)message).getParentIP(),
+                            ((AlternativeNodeMessage)message).getParentPort());
+                    break;
+                case NodeMessage.PERIOD_CHECK:
+                    refreshNodeActivity(((ConnectionNodeMessage)message).getIP());
+                    break;
+            }
+        }
+    */
+    @Override
     public void addRecvMessage(NodeMessage message){
         if(recvMessageQueue.size() == MESSAGE_CAPACITY){
             recvMessageQueue.poll();
         }
         recvMessageQueue.add(message);
-        switch(message.getMessageType()){
-            case NodeMessage.CONNECTION:
-                addNode(((ConnectionNodeMessage)message).getIP(),
-                        ((ConnectionNodeMessage)message).getPort());
-                break;
-            case NodeMessage.TEXT:
-                printMessage((TextNodeMessage) message);
-                break;
-            case NodeMessage.ACK:
-                break;
-            case NodeMessage.ALTERNATIVE:
-                setNodeParent(((AlternativeNodeMessage)message).getIP(),
-                        ((AlternativeNodeMessage)message).getParentIP(),
-                        ((AlternativeNodeMessage)message).getParentPort());
-                break;
-            case NodeMessage.PERIOD_CHECK:
-                refreshNodeActivity(((ConnectionNodeMessage)message).getIP());
-                break;
-        }
+        //handleMessage(message);
+        sendACK(message);
     }
 
-    private void printMessage(TextNodeMessage message){
+    private void sendACK(NodeMessage message){
+      //  NodeMessage ACKmessage = new ChatNodeMessage();
+        //messageSender.sendMessage(ACKmessage, nearNodesInfoList);
+    }
+
+    private void printMessage(NodeMessage message){
         String uuid = message.getUUID();
         if(!printMessagesUUIDQueue.contains(uuid)){
             System.out.println(message.getText());
@@ -122,7 +167,25 @@ public class ChatNode implements Node {
         iterator.next().refreshActivity();
     }
 
-    int getLossPerc(){
+    @Override
+    public int getLossPerc(){
         return lossPerc;
+    }
+
+    public void sendText(String text) throws IOException{
+        NodeMessage message = new ChatNodeMessage(NodeMessage.TEXT, text);
+        addPrintedMessage(message.getUUID());
+        sendMessage(message);
+    }
+
+    private boolean addPrintedMessage(String uuid){
+        if(printMessagesUUIDQueue.contains(uuid)){
+            return false;
+        }
+        if(printMessagesUUIDQueue.size() >= MESSAGE_CAPACITY){
+            printMessagesUUIDQueue.poll();
+        }
+        printMessagesUUIDQueue.add(uuid);
+        return true;
     }
 }
