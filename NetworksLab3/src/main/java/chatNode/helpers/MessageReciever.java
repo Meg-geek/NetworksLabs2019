@@ -25,7 +25,7 @@ public class MessageReciever implements Runnable {
                 DatagramPacket packet = new DatagramPacket(
                         new byte[NodeMessage.MAX_MESSAGE_LENGTH], NodeMessage.MAX_MESSAGE_LENGTH);
                 socket.receive(packet);
-                if (Math.random()*100 < chatNode.getLossPerc()){
+                if (Math.random()*100 > chatNode.getLossPerc()){
                     chatNode.addRecvMessage(new ChatNodeMessage(packet.getData(),
                             packet.getAddress().getHostAddress(), packet.getPort()));
                 }
