@@ -1,7 +1,7 @@
 package chatNode.helpers;
 
+import chatNode.ChatNode;
 import chatNode.ChatNodeMessage;
-import node.MessagesNode;
 import node.Node;
 import node.NodeInfo;
 import node.NodeMessage;
@@ -13,15 +13,18 @@ import java.util.List;
 
 public class ConnectionController implements Runnable {
     private List<NodeInfo> nodesInfoList;
-    private MessagesNode node;
+    private ChatNode node;
 
-    public ConnectionController(List<NodeInfo> nodesInfoList, MessagesNode node){
+    public ConnectionController(List<NodeInfo> nodesInfoList, ChatNode node){
         this.nodesInfoList = nodesInfoList;
         this.node = node;
     }
 
     @Override
     public void run() {
+        if(nodesInfoList.size() == 0){
+            return;
+        }
         List<NodeInfo> nodeInfoRemoveList = new ArrayList<>();
         long nowTime = new Date().getTime();
         for(NodeInfo nodeInfo : nodesInfoList){
@@ -33,10 +36,17 @@ public class ConnectionController implements Runnable {
                 }
             }
         }
+        NodeInfo alternativeNode = node.getAlernativeNode();
         for(NodeInfo nodeInfo : nodeInfoRemoveList){
+            if(nodeInfo == alternativeNode){
+                alternativeNode = null;
+            }
             nodesInfoList.remove(nodeInfo);
         }
-        sendChecks();
+        if(nodesInfoList.size() > 0){
+            sendChecks();
+            node.setAlernativeNode(nodesInfoList.get(0));
+        }
     }
 
     private void sendChecks(){
