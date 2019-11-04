@@ -1,14 +1,45 @@
 import chatNode.ChatNode;
 import node.Node;
 
+import java.io.IOException;
+
 public class Main {
     public static void main(String[] args){
         try{
-            Node node = new ChatNode("Петя", 2001, 30, "127.0.0.1", 2002);
-            node.start();
+            if(checkArgs(args)){
+                Node node = createNode(args);
+                node.start();
+            }
         } catch(Exception ex){
             ex.printStackTrace();
         }
+    }
 
+    private static Node createNode(String[] args) throws IOException {
+        if(args.length == 3){
+            return new ChatNode(args[0], Integer.valueOf(args[1]), Integer.valueOf(args[2]));
+        }
+        if(args.length == 5){
+            return new ChatNode(args[0], Integer.valueOf(args[1]), Integer.valueOf(args[2]),
+                    args[3], Integer.valueOf(args[4]));
+        }
+        return null;
+    }
+
+    private static boolean checkArgs(String[] args){
+        if((args.length != 3 && args.length != 5)
+            || args.length < 3){
+            return false;
+        }
+        try {
+            int port = Integer.valueOf(args[1]);
+            int perc = Integer.valueOf(args[2]);
+            if(args.length == 5){
+                port = Integer.valueOf(args[4]);
+            }
+        } catch (NumberFormatException ex){
+            return false;
+        }
+        return true;
     }
 }
