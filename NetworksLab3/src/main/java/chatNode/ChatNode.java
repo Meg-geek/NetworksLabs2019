@@ -7,6 +7,7 @@ import node.NodeMessage;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -19,27 +20,28 @@ public class ChatNode implements MessagesNode {
     private String nodeName;
     private int lossPerc;
     private DatagramSocket socket;
-    private List<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
+    private CopyOnWriteArrayList<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
     private NodeInfo alernativeNode;
     private Queue<NodeMessage> recvMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<String> printMessagesUUIDQueue = new ArrayDeque<>(MESSAGE_CAPACITY);
     private final int SENDER_THREADS_AMOUNT = 3;
     private MessageSender messageSender;
     private boolean started = false;
-    private final int THREADS_AMOUNT = 2;
+    private final int THREADS_AMOUNT = 3;
     private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
     private final int INIT_DELAY = 0;
-    private final int CONSOLE_LISTENER_DELAY = 200;
+    private final int CONSOLE_LISTENER_DELAY = 100;
     private Thread recieveThread;
-    private final int CONNECTION_CONTROLLER_DELAY = TIMEOUT_MILSEC*2;
+    private final int CONNECTION_CONTROLLER_DELAY = TIMEOUT_MILSEC/2;
     private final int ACK_MANAGER_DELAY = 500;
     private ACKManager ACKManager = new ACKManager(this);
 
-    public ChatNode(String nodeName, int port, int lossPerc) throws SocketException {
+    public ChatNode(String nodeName, int port, int lossPerc) throws SocketException, UnknownHostException{
         this.nodeName = nodeName;
         this.lossPerc = lossPerc;
-        socket = new DatagramSocket(port);
+        socket = new DatagramSocket(port, InetAddress.getLocalHost());
         messageSender = new MessageSender(socket, SENDER_THREADS_AMOUNT);
+        System.out.println("IP" + socket.getLocalSocketAddress());
     }
 
     public ChatNode(String nodeName, int port, int lossPerc, String parentIP, int parentPort) throws IOException {
@@ -49,17 +51,16 @@ public class ChatNode implements MessagesNode {
         sendMessage(new ChatNodeMessage(NodeMessage.CONNECTION), alernativeNode);
     }
 
-    //private void recieveMessages(){ }
-
     public void start() {
         if(started){
             return;
         }
         started = true;
         recieveThread = new Thread(new MessageReciever(socket, this));
+        recieveThread.start();
         scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConsoleListener(this),
                 INIT_DELAY, CONSOLE_LISTENER_DELAY, TimeUnit.MILLISECONDS);
-        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConnectionController(nearNodesInfoList),
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(new ConnectionController(nearNodesInfoList, this),
                 INIT_DELAY, CONNECTION_CONTROLLER_DELAY, TimeUnit.MILLISECONDS);
         scheduledThreadPoolExecutor.scheduleWithFixedDelay(ACKManager,
                 INIT_DELAY, ACK_MANAGER_DELAY, TimeUnit.MILLISECONDS);
@@ -69,6 +70,7 @@ public class ChatNode implements MessagesNode {
     public void sendMessage(NodeMessage message, NodeInfo nodeInfo) {
         if(message != null && nodeInfo != null){
             messageSender.sendMessage(message, nodeInfo);
+            ACKManager.addMessage(message, nodeInfo);
         }
     }
 
@@ -76,18 +78,23 @@ public class ChatNode implements MessagesNode {
     public void sendMessage(NodeMessage message, List<NodeInfo> nodesInfoList) {
         if(message != null && nearNodesInfoList != null &&
             nearNodesInfoList.size() > 0){
-            messageSender.sendMessage(message, nodesInfoList);
+            List<NodeInfo> copiedList = (CopyOnWriteArrayList<NodeInfo>)nearNodesInfoList.clone();
+            messageSender.sendMessage(message, copiedList);
+            ACKManager.addMessage(message, copiedList);
         }
     }
 
     @Override
     public void sendMessage(NodeMessage message) {
-        if(message != null){
-            messageSender.sendMessage(message, nearNodesInfoList);
+        if(message != null && nearNodesInfoList.size() > 0){
+            List<NodeInfo> copiedList = (CopyOnWriteArrayList<NodeInfo>)nearNodesInfoList.clone();
+            messageSender.sendMessage(message, copiedList);
+            ACKManager.addMessage(message, copiedList);
         }
     }
 
     private void handleMessage(NodeMessage message){
+        refreshNodeActivity(message.getIP(), message.getPort());
         switch(message.getMessageType()){
             case NodeMessage.CONNECTION:
                 addNode(message.getIP(), message.getPort());
@@ -105,7 +112,6 @@ public class ChatNode implements MessagesNode {
                         message.getParentPort());
                 break;
             case NodeMessage.PERIOD_CHECK:
-                refreshNodeActivity(message.getIP(), message.getPort());
                 break;
         }
     }
@@ -150,8 +156,14 @@ public class ChatNode implements MessagesNode {
     private void addNode(String ip, int port) {
         try{
             NodeInfo nodeInfo = new ChatNodeInfo(ip, port);
+            if(alernativeNode == null){
+                alernativeNode = nodeInfo;
+                sendMessage(new ChatNodeMessage(NodeMessage.ALTERNATIVE,
+                        nodeInfo.getInetAddress().getHostAddress(),
+                        nodeInfo.getPort()));
+            }
             nearNodesInfoList.add(nodeInfo);
-        } catch(UnknownHostException ex){
+        } catch(IOException ex){
             //log exception?
         }
     }
@@ -160,9 +172,10 @@ public class ChatNode implements MessagesNode {
         NodeInfo nodeInfo = null;
         Iterator<NodeInfo> iterator = nearNodesInfoList.iterator();
         while(iterator.hasNext() && nodeInfo == null){
-            if (iterator.next().getInetAddress().getHostAddress().equals(ip)
-                && iterator.next().getPort() == port){
-                nodeInfo = iterator.next();
+            NodeInfo nodeIt = iterator.next();
+            if (nodeIt.getInetAddress().getHostAddress().equals(ip)
+                && nodeIt.getPort() == port){
+                nodeInfo = nodeIt;
             }
         }
         return nodeInfo;
@@ -206,5 +219,15 @@ public class ChatNode implements MessagesNode {
         }
         printMessagesUUIDQueue.add(uuid);
         return true;
+    }
+
+    public NodeInfo getAlernativeNode(){
+        return alernativeNode;
+    }
+
+    public void setAlernativeNode(NodeInfo newAlternativeNode){
+        if(nearNodesInfoList.contains(newAlternativeNode)){
+            alernativeNode = newAlternativeNode;
+        }
     }
 }
