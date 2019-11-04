@@ -7,7 +7,6 @@ import node.NodeMessage;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-//or Runnable?
 /*
 просматривает, какие ack получены. если ack не получен,
 то повторно отправляется сообщение
@@ -37,9 +36,19 @@ public class ACKManager implements Runnable {
             messageNodeMap.remove(message);
             uuidMessage.remove(message.getUUID());
         }
+        messagesList = new ArrayList<>();
         for(Map.Entry<NodeMessage, List<NodeInfo>> messageListEntry : messageNodesListMap.entrySet()){
-            refreshNodeInfoList(messageListEntry.getValue());
-            chatNode.sendMessage(messageListEntry.getKey(), messageListEntry.getValue());
+            List<NodeInfo> nodeInfoList = messageListEntry.getValue();
+            refreshNodeInfoList(nodeInfoList);
+            if(nodeInfoList.size() > 0){
+                chatNode.sendMessage(messageListEntry.getKey(), nodeInfoList);
+            } else {
+                messagesList.add(messageListEntry.getKey());
+            }
+        }
+        for(NodeMessage message : messagesList){
+            messageNodesListMap.remove(message);
+            uuidMessage.remove(message.getUUID());
         }
     }
 
@@ -76,9 +85,7 @@ public class ACKManager implements Runnable {
     }
 
     public void addMessage(NodeMessage message, List<NodeInfo> nodeInfoList){
-        List<NodeInfo> nodesList = new ArrayList<>();
-        Collections.copy(nodesList, nodeInfoList);
-        messageNodesListMap.put(message, nodesList);
+        messageNodesListMap.put(message, nodeInfoList);
         uuidMessage.put(message.getUUID(), message);
     }
 }
