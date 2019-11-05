@@ -9,6 +9,8 @@ public class Main {
             if(checkArgs(args)){
                 Node node = createNode(args);
                 node.start();
+            } else {
+                System.out.println("Wrong arguments, try again");
             }
         } catch(Exception ex){
             ex.printStackTrace();

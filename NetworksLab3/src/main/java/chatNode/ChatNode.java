@@ -228,6 +228,16 @@ public class ChatNode implements MessagesNode {
     public void setAlernativeNode(NodeInfo newAlternativeNode){
         if(nearNodesInfoList.contains(newAlternativeNode)){
             alernativeNode = newAlternativeNode;
+            try{
+                sendMessage(new ChatNodeMessage(NodeMessage.ALTERNATIVE,
+                        alernativeNode.getInetAddress().getHostAddress(),
+                        alernativeNode.getPort()));
+            } catch (IOException ex){
+                ex.printStackTrace();
+            }
+        }
+        if(nearNodesInfoList.size() == 0){
+            alernativeNode = null;
         }
     }
 }
