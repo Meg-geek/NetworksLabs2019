@@ -76,11 +76,10 @@ public class ChatNode implements MessagesNode {
 
     @Override
     public void sendMessage(NodeMessage message, List<NodeInfo> nodesInfoList) {
-        if(message != null && nearNodesInfoList != null &&
-            nearNodesInfoList.size() > 0){
-            List<NodeInfo> copiedList = (CopyOnWriteArrayList<NodeInfo>)nearNodesInfoList.clone();
-            messageSender.sendMessage(message, copiedList);
-            ACKManager.addMessage(message, copiedList);
+        if(message != null && nodesInfoList != null &&
+            nodesInfoList.size() > 0){
+            messageSender.sendMessage(message, nodesInfoList);
+            ACKManager.addMessage(message, nodesInfoList);
         }
     }
 
