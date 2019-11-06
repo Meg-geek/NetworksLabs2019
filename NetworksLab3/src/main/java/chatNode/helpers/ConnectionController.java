@@ -45,7 +45,9 @@ public class ConnectionController implements Runnable {
         }
         if(nodesInfoList.size() > 0){
             sendChecks();
-            node.setAlernativeNode(nodesInfoList.get(0));
+            if(alternativeNode == null){
+                node.setAlernativeNode(nodesInfoList.get(0));
+            }
         } else {
             node.setAlernativeNode(null);
         }

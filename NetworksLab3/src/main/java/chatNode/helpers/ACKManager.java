@@ -6,6 +6,7 @@ import node.NodeMessage;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /*
 просматривает, какие ack получены. если ack не получен,
@@ -13,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ACKManager implements Runnable {
     private Map<NodeMessage, List<NodeInfo>> messageNodesListMap = new ConcurrentHashMap<>();
-    private Map<NodeMessage, NodeInfo> messageNodeMap = new ConcurrentHashMap<>();
     private Map <String, NodeMessage> uuidMessage = new ConcurrentHashMap<>();
     private MessagesNode chatNode;
 
@@ -23,20 +23,7 @@ public class ACKManager implements Runnable {
 
     @Override
     public void run() {
-        long nowTime = new Date().getTime();
         List<NodeMessage> messagesList = new ArrayList<>();
-        for(Map.Entry<NodeMessage, NodeInfo> messageNodeInfoEntry : messageNodeMap.entrySet()){
-            if(nowTime - messageNodeInfoEntry.getValue().getLastActivity().getTime() > MessagesNode.TIMEOUT_MILSEC){
-                messagesList.add(messageNodeInfoEntry.getKey());
-            } else {
-                chatNode.sendMessage(messageNodeInfoEntry.getKey(), messageNodeInfoEntry.getValue());
-            }
-        }
-        for(NodeMessage message : messagesList){
-            messageNodeMap.remove(message);
-            uuidMessage.remove(message.getUUID());
-        }
-        messagesList = new ArrayList<>();
         for(Map.Entry<NodeMessage, List<NodeInfo>> messageListEntry : messageNodesListMap.entrySet()){
             List<NodeInfo> nodeInfoList = messageListEntry.getValue();
             refreshNodeInfoList(nodeInfoList);
@@ -70,18 +57,16 @@ public class ACKManager implements Runnable {
         if(message == null){
             return;
         }
-        if(messageNodeMap.containsKey(message)) {
-            messageNodeMap.remove(message);
-            uuidMessage.remove(messageUUID);
-        }
-        if(messageNodesListMap.containsKey(message)){
-            messageNodesListMap.get(message).remove(nodeInfo);
+        List<NodeInfo> nodeInfoList = messageNodesListMap.get(message);
+        if(nodeInfoList != null){
+            nodeInfoList.remove(nodeInfo);
         }
     }
 
     public void addMessage(NodeMessage message, NodeInfo nodeInfo){
-        messageNodeMap.put(message, nodeInfo);
-        uuidMessage.put(message.getUUID(), message);
+        List<NodeInfo> nodeInfoList = new CopyOnWriteArrayList<>();
+        nodeInfoList.add(nodeInfo);
+        addMessage(message, nodeInfoList);
     }
 
     public void addMessage(NodeMessage message, List<NodeInfo> nodeInfoList){

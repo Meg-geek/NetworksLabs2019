@@ -21,7 +21,7 @@ public class ConsoleListener implements Runnable {
                 chatNode.sendText(input.nextLine());
             }
         }catch(IOException ex){
-            //ex.printStackTrace();
+            ex.printStackTrace();
         }
     }
 }

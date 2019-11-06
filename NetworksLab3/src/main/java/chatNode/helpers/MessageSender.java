@@ -10,18 +10,18 @@ import java.util.concurrent.Executors;
 
 public class MessageSender {
     private DatagramSocket socket;
-    private ExecutorService sendThreads;
+    private ExecutorService sendThread;
 
-    public MessageSender(DatagramSocket socket, int threadsAmount){
+    public MessageSender(DatagramSocket socket){
         this.socket = socket;
-        sendThreads = Executors.newFixedThreadPool(threadsAmount);
+        sendThread = Executors.newSingleThreadExecutor();
     }
 
     public void sendMessage(NodeMessage message, List<NodeInfo> nodesList){
-        sendThreads.submit(new SendTask(socket, message, nodesList));
+        sendThread.submit(new SendTask(socket, message, nodesList));
     }
 
     public void sendMessage(NodeMessage message, NodeInfo nodeInfo){
-        sendThreads.submit(new SendTask(socket, message, nodeInfo));
+        sendThread.submit(new SendTask(socket, message, nodeInfo));
     }
 }

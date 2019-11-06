@@ -20,11 +20,10 @@ public class ChatNode implements MessagesNode {
     private String nodeName;
     private int lossPerc;
     private DatagramSocket socket;
-    private CopyOnWriteArrayList<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
+    private List<NodeInfo> nearNodesInfoList = new CopyOnWriteArrayList<>();
     private NodeInfo alernativeNode;
     private Queue<NodeMessage> recvMessageQueue = new ArrayBlockingQueue<>(MESSAGE_CAPACITY);
     private Queue<String> printMessagesUUIDQueue = new ArrayDeque<>(MESSAGE_CAPACITY);
-    private final int SENDER_THREADS_AMOUNT = 3;
     private MessageSender messageSender;
     private boolean started = false;
     private final int THREADS_AMOUNT = 3;
@@ -40,7 +39,7 @@ public class ChatNode implements MessagesNode {
         this.nodeName = nodeName;
         this.lossPerc = lossPerc;
         socket = new DatagramSocket(port, InetAddress.getLocalHost());
-        messageSender = new MessageSender(socket, SENDER_THREADS_AMOUNT);
+        messageSender = new MessageSender(socket);
         System.out.println("IP" + socket.getLocalSocketAddress());
     }
 
@@ -79,14 +78,13 @@ public class ChatNode implements MessagesNode {
         if(message != null && nodesInfoList != null &&
             nodesInfoList.size() > 0){
             messageSender.sendMessage(message, nodesInfoList);
-            ACKManager.addMessage(message, nodesInfoList);
         }
     }
 
     @Override
     public void sendMessage(NodeMessage message) {
         if(message != null && nearNodesInfoList.size() > 0){
-            List<NodeInfo> copiedList = (CopyOnWriteArrayList<NodeInfo>)nearNodesInfoList.clone();
+            List<NodeInfo> copiedList = new CopyOnWriteArrayList<>(nearNodesInfoList);
             messageSender.sendMessage(message, copiedList);
             ACKManager.addMessage(message, copiedList);
         }
@@ -100,6 +98,7 @@ public class ChatNode implements MessagesNode {
                 break;
             case NodeMessage.TEXT:
                 printMessage(message);
+                sendMessage(message);
                 break;
             case NodeMessage.ACK:
                 ackRecv(message.getACKUUID(), message.getIP(), message.getPort());
@@ -128,7 +127,7 @@ public class ChatNode implements MessagesNode {
             recvMessageQueue.poll();
         }
         try {
-            sendACK(message);
+            sendACK(message, message.getIP(), message.getPort());
             recvMessageQueue.add(message);
             handleMessage(message);
         } catch(IOException ex){
@@ -136,9 +135,14 @@ public class ChatNode implements MessagesNode {
         }
     }
 
-    private void sendACK(NodeMessage message) throws IOException{
+    private void sendACK(NodeMessage message, String ip, int port) throws IOException{
         NodeMessage ACKmessage = new ChatNodeMessage(NodeMessage.ACK, message.getUUID());
-        messageSender.sendMessage(ACKmessage, nearNodesInfoList);
+        NodeInfo nodeInfo = findNode(ip, port);
+        if(nodeInfo == null){
+            addNode(ip, port);
+            nodeInfo = findNode(ip, port);
+        }
+        messageSender.sendMessage(ACKmessage, nodeInfo);
     }
 
     private void printMessage(NodeMessage message){
@@ -154,16 +158,14 @@ public class ChatNode implements MessagesNode {
 
     private void addNode(String ip, int port) {
         try{
-            NodeInfo nodeInfo = new ChatNodeInfo(ip, port);
-            if(alernativeNode == null){
-                alernativeNode = nodeInfo;
-                sendMessage(new ChatNodeMessage(NodeMessage.ALTERNATIVE,
-                        nodeInfo.getInetAddress().getHostAddress(),
-                        nodeInfo.getPort()));
+            NodeInfo nodeInfo = findNode(ip, port);
+            if(nodeInfo == null){
+                new ChatNodeInfo(ip, port);
+                nearNodesInfoList.add(nodeInfo);
             }
-            nearNodesInfoList.add(nodeInfo);
         } catch(IOException ex){
             //log exception?
+            ex.printStackTrace();
         }
     }
 
@@ -195,6 +197,8 @@ public class ChatNode implements MessagesNode {
         NodeInfo nodeInfo = findNode(ip, port);
         if(nodeInfo != null){
             nodeInfo.refreshActivity();
+        } else {
+            addNode(ip, port);
         }
     }
 
