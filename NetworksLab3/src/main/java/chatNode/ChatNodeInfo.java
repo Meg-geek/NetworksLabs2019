@@ -9,7 +9,7 @@ import java.util.Date;
 public class ChatNodeInfo implements NodeInfo {
     private int port, parentPort;
     private InetAddress address, parentAddress = null;
-    private Date lastActivity;
+    private Date lastActivity = new Date();
 
     ChatNodeInfo(String ip, int port) throws UnknownHostException {
         address = InetAddress.getByName(ip);
