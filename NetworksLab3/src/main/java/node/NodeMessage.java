@@ -23,4 +23,5 @@ public interface NodeMessage {
     int getParentPort();
     //for text messages
     String getText();
+    String getNodeName();
 }

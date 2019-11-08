@@ -11,7 +11,7 @@ import java.util.UUID;
 затем  int messageType,
 далее в зависимости от вида сообщения
 CONNECTION: ничего
-TEXT: длина сообщения(int) + сообщение
+TEXT: длина сообщения(int) + сообщение + длина имени узла (int) + имя узла
 ACK: UUID полученного сообщения
 ALTERNATIVE: длина (int) ip + ip + порт (int)
 PERIOD CHECK: ничего
@@ -23,6 +23,7 @@ public class ChatNodeMessage implements NodeMessage {
     private String text;
     private String ip, parentIP;
     private int port, parentPORT;
+    private String nodeName;
     private ByteArrayOutputStream messageByteArrayStream = new ByteArrayOutputStream();
     private DataOutputStream messageDataStream = new DataOutputStream(messageByteArrayStream);
     private static int UUID_SIZE = UUID.randomUUID().toString().getBytes(Charset.forName(CHARSET_NAME)).length;
@@ -35,24 +36,30 @@ public class ChatNodeMessage implements NodeMessage {
         messageDataStream.flush();
     }
 
-    //for ACK and TEXT messages
-    public ChatNodeMessage(int messageType, String text) throws IOException{
+    //for ACK messages
+    ChatNodeMessage(int messageType, String ackUUID) throws IOException{
         this(messageType);
-        if(messageType == TEXT){
-            byte[] textByteArray = text.getBytes(Charset.forName(CHARSET_NAME));
-            messageDataStream.writeInt(textByteArray.length);
-            messageDataStream.write(textByteArray);
-        }
-        if(messageType == ACK){
-            //to write uuid
-            messageDataStream.write(text.getBytes(Charset.forName(CHARSET_NAME)));
-        }
+        messageDataStream.write(ackUUID.getBytes(Charset.forName(CHARSET_NAME)));
+        text = ackUUID;
+        messageDataStream.flush();
+    }
+
+    //for TEXT message
+    ChatNodeMessage(int messageType, String text, String nodeName) throws IOException{
+        this(messageType);
+        byte[] textByteArray = text.getBytes(Charset.forName(CHARSET_NAME));
+        messageDataStream.writeInt(textByteArray.length);
+        messageDataStream.write(textByteArray);
+        textByteArray = nodeName.getBytes(Charset.forName(CHARSET_NAME));
+        messageDataStream.writeInt(textByteArray.length);
+        messageDataStream.write(textByteArray);
+        this.nodeName = nodeName;
         this.text = text;
         messageDataStream.flush();
     }
 
     //for alternative messages
-    public ChatNodeMessage(int messageType, String parentIP, int parentPort) throws IOException{
+    ChatNodeMessage(int messageType, String parentIP, int parentPort) throws IOException{
         this(messageType);
         byte[] ipByteArray = parentIP.getBytes(Charset.forName(CHARSET_NAME));
         messageDataStream.writeInt(ipByteArray.length);
@@ -89,6 +96,10 @@ public class ChatNodeMessage implements NodeMessage {
                 byte[] textByteArray = new byte[length];
                 recvMessageStream.readFully(textByteArray, 0, length);
                 text = new String(textByteArray, CHARSET_NAME);
+                length = recvMessageStream.readInt();
+                textByteArray = new byte[length];
+                recvMessageStream.readFully(textByteArray, 0, length);
+                nodeName = new String(textByteArray, CHARSET_NAME);
                 break;
             case ALTERNATIVE:
                 int ipLength = recvMessageStream.readInt();
@@ -153,6 +164,14 @@ public class ChatNodeMessage implements NodeMessage {
     public String getText(){
         if(messageType == TEXT){
             return text;
+        }
+        return null;
+    }
+
+    @Override
+    public String getNodeName() {
+        if(messageType == TEXT){
+            return nodeName;
         }
         return null;
     }

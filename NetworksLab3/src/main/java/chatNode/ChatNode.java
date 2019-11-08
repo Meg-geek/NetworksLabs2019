@@ -127,9 +127,9 @@ public class ChatNode implements MessagesNode {
             recvMessageQueue.poll();
         }
         try {
+            handleMessage(message);
             sendACK(message, message.getIP(), message.getPort());
             recvMessageQueue.add(message);
-            handleMessage(message);
         } catch(IOException ex){
             //ex.printStackTrace();
         }
@@ -148,7 +148,7 @@ public class ChatNode implements MessagesNode {
     private void printMessage(NodeMessage message){
         String uuid = message.getUUID();
         if(!printMessagesUUIDQueue.contains(uuid)){
-            System.out.println(message.getText());
+            System.out.println(message.getNodeName() + " : " + message.getText());
             if(printMessagesUUIDQueue.size() >= MESSAGE_CAPACITY){
                 printMessagesUUIDQueue.poll();
             }
@@ -174,7 +174,7 @@ public class ChatNode implements MessagesNode {
         Iterator<NodeInfo> iterator = nearNodesInfoList.iterator();
         while(iterator.hasNext() && nodeInfo == null){
             NodeInfo nodeIt = iterator.next();
-            if (nodeIt.getInetAddress().getHostAddress().equals(ip)
+            if (nodeIt != null && nodeIt.getInetAddress().getHostAddress().equals(ip)
                 && nodeIt.getPort() == port){
                 nodeInfo = nodeIt;
             }
@@ -208,7 +208,7 @@ public class ChatNode implements MessagesNode {
     }
 
     public void sendText(String text) throws IOException{
-        NodeMessage message = new ChatNodeMessage(NodeMessage.TEXT, text);
+        NodeMessage message = new ChatNodeMessage(NodeMessage.TEXT, text, nodeName);
         addPrintedMessage(message.getUUID());
         sendMessage(message);
     }
