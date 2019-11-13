@@ -7,11 +7,17 @@
     <groupId>ru.nsu.netlabs</groupId>
     <artifactId>netlab4</artifactId>
     <version>1.0-SNAPSHOT</version>
+
     <dependencies>
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
             <version>3.10.0-rc-1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-base</artifactId>
+            <version>13-ea+14b</version>
         </dependency>
     </dependencies>
 
