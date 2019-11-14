@@ -11,6 +11,7 @@ import java.util.List;
 
 
 public class Snake implements SnakeI {
+    //head in the beggining of the queue
     private Deque<Coordinates> snakeBodyDeque = new ArrayDeque<>();
     private Direction curDirection;
     private FieldManager fieldManager;
@@ -68,8 +69,8 @@ public class Snake implements SnakeI {
                 snakeBodyDeque.addFirst(nextCoord);
                 break;
             case EMPTY_CELL:
-                snakeBodyDeque.addLast(nextCoord);
-                snakeBodyDeque.pollFirst();
+                snakeBodyDeque.addFirst(nextCoord);
+                snakeBodyDeque.pollLast();
                 break;
             case SNAKE_BODY:
                 alive = false;
@@ -80,8 +81,8 @@ public class Snake implements SnakeI {
                     alive = false;
                     snakeBodyDeque.clear();
                 } else {
-                    snakeBodyDeque.addLast(nextCoord);
-                    snakeBodyDeque.pollFirst();
+                    snakeBodyDeque.addFirst(nextCoord);
+                    snakeBodyDeque.pollLast();
                 }
                 break;
         }
