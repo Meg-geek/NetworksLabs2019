@@ -11,4 +11,5 @@ public interface NetworkUser {
     void sendMessage(Message message, List<NetworkUser> usersList);
     Date getLastActivity();
     void refreshActivity();
+    void recieveMessage(Message message);
 }
