@@ -1,27 +1,24 @@
 package model.networkUtils;
 
 public abstract class Message {
-    private long messageNumber;
-    private int recieverID, senderID;
+    private BasicMessageInfo messageInfo;
 
     public Message(){}
 
-    public Message(long messageNumber, int senderID, int recieverID){
-        this.messageNumber = messageNumber;
-        this.senderID = senderID;
-        this.recieverID = recieverID;
+    public Message(BasicMessageInfo messageInfo){
+        this.messageInfo = messageInfo;
     }
 
     final public long getNumber(){
-        return messageNumber;
+        return messageInfo.getNumber();
     }
 
     final public int getSenderID(){
-        return senderID;
+        return messageInfo.getSenderID();
     }
 
     final public int getReceiverID(){
-        return recieverID;
+        return messageInfo.getReceiverID();
     }
 
     abstract public MessageType getType();
