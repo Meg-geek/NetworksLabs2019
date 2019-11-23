@@ -9,15 +9,15 @@ public class SettingConstants<T> {
         this.maxValue = maxValue;
     }
 
-    T getMinValue(){
+    public T getMinValue(){
         return minValue;
     }
 
-    T getDefaultValue(){
+    public T getDefaultValue(){
         return defaultValue;
     }
 
-    T getMaxValue(){
+    public T getMaxValue(){
         return maxValue;
     }
 }
