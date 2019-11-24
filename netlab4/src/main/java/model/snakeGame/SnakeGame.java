@@ -5,6 +5,7 @@ import model.game.GameField;
 import model.game.GameSettings;
 import model.networkUtils.*;
 import model.snakeGameNetwork.messages.RoleChangeMessage;
+import model.snakeGameNetwork.messages.SteerMessage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,6 +97,12 @@ public class SnakeGame implements Game, NetworkGame {
                 if(message instanceof RoleChangeMessage){
                     changeRole((RoleChangeMessage)message);
                 }
+                break;
+            case STEER:
+                if(message instanceof SteerMessage){
+                    gameField.setSnakeDirection(message.getSenderID(), ((SteerMessage) message).getDirection());
+                }
+
         }
     }
 
