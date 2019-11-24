@@ -16,8 +16,9 @@ public class Snake implements SnakeI {
     private Direction curDirection;
     private FieldManager fieldManager;
     private boolean alive = true;
+    private int playerID;
 
-    Snake(List<Coordinates> startCoordinatesList, FieldManager fieldManager){
+    /*Snake(List<Coordinates> startCoordinatesList, FieldManager fieldManager){
         for(Coordinates coord : startCoordinatesList){
             snakeBodyDeque.addLast(coord);
         }
@@ -28,9 +29,16 @@ public class Snake implements SnakeI {
         this(startCoordinatesList, fieldManager);
         curDirection = startDirection;
     }
+*/
+    public Snake(List<Coordinates> startCoordinates, Direction startDirection, int playerID){
+        for(Coordinates coord : startCoordinates){
+            snakeBodyDeque.addLast(coord);
+        }
+        curDirection = startDirection;
+    }
 
     @Override
-    public void move(Direction direction) {
+    public void setDirection(Direction direction) {
         switch(direction){
             case DOWN:
                 if(curDirection != Direction.UP) {
@@ -87,4 +95,36 @@ public class Snake implements SnakeI {
                 break;
         }
     }
+
+    @Override
+    public int getPlayerID() {
+        return playerID;
+    }
+/*
+    public void setDirection(Direction direction){
+        switch(direction){
+            case DOWN:
+                if(curDirection != Direction.UP) {
+                    curDirection = direction;
+                }
+                break;
+            case UP:
+                if(curDirection != Direction.DOWN) {
+                    curDirection = direction;
+                }
+                break;
+            case LEFT:
+                if(curDirection != Direction.RIGHT) {
+                    curDirection = direction;
+                }
+                break;
+            case RIGHT:
+                if(curDirection != Direction.LEFT) {
+                    curDirection = direction;
+                }
+                break;
+        }
+    }
+    */
+
 }

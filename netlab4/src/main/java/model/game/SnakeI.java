@@ -6,7 +6,7 @@ public interface SnakeI {
      * @param direction is the direction where you want to
      * move your snake
      */
-    void move(Direction direction);
+    void setDirection(Direction direction);
 
     /**
      * Shows if snake is alive
@@ -21,4 +21,5 @@ public interface SnakeI {
     void move();
 
     //int getLength();
+    int getPlayerID();
 }
