@@ -15,6 +15,12 @@ public class RoleChangeMessage extends Message {
         recieverRole = getRole(roleChangeMsg.getReceiverRole());
     }
 
+    public RoleChangeMessage(BasicMessageInfo messageInfo, NodeRole senderRole, NodeRole recieverRole){
+        super(messageInfo);
+        this.senderRole = senderRole;
+        this.recieverRole = recieverRole;
+    }
+
     private NodeRole getRole(SnakesProto.NodeRole role){
         switch (role){
             case DEPUTY:
