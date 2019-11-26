@@ -3,26 +3,28 @@ package model.snakeGame;
 import com.google.protobuf.InvalidProtocolBufferException;
 import me.ippolitov.fit.snakes.SnakesProto;
 import model.game.App;
-import model.game.Game;
 import model.networkUtils.*;
 import model.snakeGameNetwork.*;
+import model.snakeGameNetwork.messages.AnnouncmentMessage;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class SnakeApp implements App, NetworkApp {
-    private List<Game> gamesList = new ArrayList<>();
+    //private List<NetworkGame> gamesList = new ArrayList<>();
+    private Map<NetworkGame, Date> gamesMap = new ConcurrentHashMap<>();
     private MessageConverter messageConverter;
     private MulticastRecvThread multicastRecvThread;
     private Thread recvThread;
     private ACKManager ackManager;
     private boolean started = false;
     private Sender sender;
+    private final int GAME_TIMEOUT_S = 1;
     private final int ACK_DELAY_MS = 10;
     private final int THREADS_AMOUNT = 1;
     private ScheduledThreadPoolExecutor scheduledThreadPool = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
@@ -61,13 +63,6 @@ public class SnakeApp implements App, NetworkApp {
         }
     }
 
-    /*@Override
-    public void sendMessage(Message message) {
-
-    }
-
-     */
-
     @Override
     public void sendMessage(Message message, List<NetworkUser> users) {
         SnakesProto.GameMessage gameMessage = messageConverter.messageToProto(message);
@@ -82,7 +77,9 @@ public class SnakeApp implements App, NetworkApp {
                     ip, port));
         }
         if(message.getType() == MessageType.ANNOUNCMENT){
-
+            if(message instanceof AnnouncmentMessage){
+                updateGamesMap((AnnouncmentMessage) message, ip, port);
+            }
         }
 
         if(message.getType() == MessageType.ERROR){
@@ -91,4 +88,21 @@ public class SnakeApp implements App, NetworkApp {
             curGame.handleMessage(message);
         }
     }
+
+    private synchronized void updateGamesMap(AnnouncmentMessage message, String ip, int port){
+        SnakeGame snakeGame = new SnakeGame(this, message.getGameSettings(), message.getNetworkSettings(),
+                message.getSenderID(), message.getUsersList(), message.getPlayersList());
+        gamesMap.put(snakeGame, new Date());
+        List<NetworkGame> gamesToRemove = new ArrayList<>();
+        long nowTime = new Date().getTime();
+        for(Map.Entry<NetworkGame, Date> entry : gamesMap.entrySet()){
+            if(nowTime - entry.getValue().getTime() > GAME_TIMEOUT_S*1000){
+                gamesToRemove.add(entry.getKey());
+            }
+        }
+        for(NetworkGame game : gamesToRemove){
+            gamesMap.remove(game);
+        }
+    }
+
 }

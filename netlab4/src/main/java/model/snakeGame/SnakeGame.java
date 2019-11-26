@@ -3,7 +3,9 @@ package model.snakeGame;
 import model.game.Game;
 import model.game.GameField;
 import model.game.GameSettings;
+import model.game.Player;
 import model.networkUtils.*;
+import model.snakeGameNetwork.messages.GameStateMessage;
 import model.snakeGameNetwork.messages.RoleChangeMessage;
 import model.snakeGameNetwork.messages.SteerMessage;
 
@@ -18,6 +20,7 @@ public class SnakeGame implements Game, NetworkGame {
     private final int INIT_DELAY = 0;
     private ScheduledThreadPoolExecutor scheduledThreadPool = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
     private GameSettings gameSettings;
+    private GameNetworkSettings gameNetworkSettings;
     private GameField gameField;
     private MasterNode master;
     private NetworkUser me;
@@ -32,9 +35,12 @@ public class SnakeGame implements Game, NetworkGame {
         this.gameSettings = gameSettings;
     }
 
-    SnakeGame(NetworkApp app, NetworkUser me){
+    public SnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings,
+              int masterID, List<NetworkUser> usersList, List<Player> playersList){
         this.app = app;
-        this.me = me;
+        this.gameSettings = gameSettings;
+        this.gameNetworkSettings = gameNetworkSettings;
+        //this.me = me;
     }
 
     @Override
@@ -76,6 +82,10 @@ public class SnakeGame implements Game, NetworkGame {
                     me.getID(), user.getID()), NodeRole.MASTER, null);
             app.sendMessage(message, new ArrayList<>(){{add(user);}});
         }
+        scheduledThreadPool.scheduleWithFixedDelay(new MovementThread(gameField),
+                INIT_DELAY,
+                gameSettings.getStateDelayMS(),
+                TimeUnit.MILLISECONDS);
     }
 
     private void removeUser(int userID){
@@ -102,9 +112,23 @@ public class SnakeGame implements Game, NetworkGame {
                 if(message instanceof SteerMessage){
                     gameField.setSnakeDirection(message.getSenderID(), ((SteerMessage) message).getDirection());
                 }
+                break;
+            case JOIN:
+                if(){
+
+                }
+                break;
+            case STATE:
+                if(message instanceof GameStateMessage){
+                    gameField.changeState((GameStateMessage)message);
+                   // checkDeputy(((GameStateMessage)message).getDeputy());
+                }
+                break;
+
 
         }
     }
+
 
     @Override
     public void quitGame() {
@@ -120,4 +144,63 @@ public class SnakeGame implements Game, NetworkGame {
             app.sendMessage(message, new ArrayList<>(){{add(master.getMaster());}});
         }
     }
+
+    @Override
+    public long getAndIncrementMsgSeq() {
+        return msgSeq.getAndIncrement();
+    }
+
+    @Override
+    public int getMyID() {
+        return 0;
+    }
+
+    @Override
+    public GameNetworkSettings getNetworkSettings() {
+        return null;
+    }
+
+    @Override
+    public GameSettings getGameSettings() {
+        return null;
+    }
+
+    /*@Override
+    public List<NetworkUser> getUsersList() {
+        return null;
+    }*/
+
+    @Override
+    public boolean equals(NetworkGame game) {
+        if(game.getNetworkSettings().getNodeTimeoutMs() != gameNetworkSettings.getNodeTimeoutMs()
+            || game.getNetworkSettings().getPingDelayMs() != gameNetworkSettings.getPingDelayMs()){
+            return false;
+        }
+        if(game.getMasterIP() != master.getIP()){
+            return false;
+        }
+        GameSettings otherSettings = game.getGameSettings();
+        if(otherSettings.getWidth() != gameSettings.getWidth()
+            || otherSettings.getHeight() != gameSettings.getHeight()
+            || otherSettings.getDeadFoodProb() != gameSettings.getDeadFoodProb()
+            || otherSettings.getStateDelayMS() != gameSettings.getStateDelayMS()
+            || otherSettings.getFoodStatic() != gameSettings.getFoodStatic()) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String getMasterIP() {
+        return null;
+    }
+
+    @Override
+    public boolean equals(Object obj){
+        if(obj instanceof NetworkGame){
+            return equals((NetworkGame)obj);
+        }
+        return super.equals(obj);
+    }
+
 }
