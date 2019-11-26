@@ -1,9 +1,6 @@
 package model.snakeGameNetwork;
 
-import me.ippolitov.fit.snakes.SnakesProto;
-import model.networkUtils.Message;
-import model.networkUtils.MessageParser;
-import model.networkUtils.NetworkUser;
+import model.networkUtils.NetworkApp;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -12,15 +9,13 @@ import java.net.DatagramSocket;
 public class MessageReciever implements Runnable {
     private boolean running = true;
     private DatagramSocket socket;
-    private MessageParser messageParser;
-    private NetworkUser networkUser;
+    private NetworkApp networkApp;
     //temp
     private static int MAX_PACKET_LENGTH = 1500;
 
-    public MessageReciever(DatagramSocket socket, MessageParser parser, NetworkUser user){
+    public MessageReciever(DatagramSocket socket, NetworkApp networkApp){
         this.socket = socket;
-        messageParser = parser;
-        networkUser = user;
+        this.networkApp = networkApp;
     }
 
     @Override
@@ -29,12 +24,10 @@ public class MessageReciever implements Runnable {
             try{
                 DatagramPacket packet = new DatagramPacket(new byte[MAX_PACKET_LENGTH], MAX_PACKET_LENGTH);
                 socket.receive(packet);
-                Message message = messageParser.parseMessage(SnakesProto.GameMessage.parseFrom(packet.getData()));
-                networkUser.recieveMessage(message);
+                networkApp.recieveDatagramPacket(packet);
             } catch(IOException ex){
                 throw new RuntimeException(ex);
             }
-
         }
     }
 }
