@@ -15,11 +15,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SnakeGameACKManager implements ACKManager, Runnable {
     private Map<Message, List<NetworkUser>> messageUsersListMap = new ConcurrentHashMap<>();
     private Map<Long, Message> numberMessageMap = new ConcurrentHashMap<>();
-    private AtomicInteger nodeTimeoutMS;
+    private AtomicInteger nodeTimeoutMS  = new AtomicInteger(0);
     private NetworkApp networkApp;
 
-    SnakeGameACKManager(int nodeTimeoutMS, NetworkApp networkApp){
-        this.nodeTimeoutMS = new AtomicInteger(nodeTimeoutMS);
+    public SnakeGameACKManager(NetworkApp networkApp){
         this.networkApp = networkApp;
     }
 
