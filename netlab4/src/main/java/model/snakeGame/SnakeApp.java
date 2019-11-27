@@ -91,7 +91,7 @@ public class SnakeApp implements App, NetworkApp {
 
     private synchronized void updateGamesMap(AnnouncmentMessage message, String ip, int port){
         SnakeGame snakeGame = new SnakeGame(this, message.getGameSettings(), message.getNetworkSettings(),
-                message.getSenderID(), message.getUsersList(), message.getPlayersList());
+                message.getUsersList(), message.getPlayersList(), new MasterPlayer(ip, port, message.getSenderID()));
         gamesMap.put(snakeGame, new Date());
         List<NetworkGame> gamesToRemove = new ArrayList<>();
         long nowTime = new Date().getTime();

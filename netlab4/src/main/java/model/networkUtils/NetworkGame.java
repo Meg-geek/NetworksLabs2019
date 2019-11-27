@@ -11,5 +11,6 @@ public interface NetworkGame {
     GameNetworkSettings getNetworkSettings();
     GameSettings getGameSettings();
     boolean equals(NetworkGame game);
-    String getMasterIP();
+    //String getMasterIP();
+    MasterNode getMaster();
 }

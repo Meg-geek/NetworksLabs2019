@@ -30,17 +30,19 @@ public class SnakeGame implements Game, NetworkGame {
     private boolean alive = true;
 
     //если мастер конструктор и если не мастер?
-
+    /*
     SnakeGame(GameSettings gameSettings){
         this.gameSettings = gameSettings;
     }
+    */
+
 
     public SnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings,
-              int masterID, List<NetworkUser> usersList, List<Player> playersList){
+              List<NetworkUser> usersList, List<Player> playersList, MasterNode master){
         this.app = app;
         this.gameSettings = gameSettings;
         this.gameNetworkSettings = gameNetworkSettings;
-        //this.me = me;
+        this.master = master;
     }
 
     @Override
@@ -172,27 +174,21 @@ public class SnakeGame implements Game, NetworkGame {
 
     @Override
     public boolean equals(NetworkGame game) {
-        if(game.getNetworkSettings().getNodeTimeoutMs() != gameNetworkSettings.getNodeTimeoutMs()
-            || game.getNetworkSettings().getPingDelayMs() != gameNetworkSettings.getPingDelayMs()){
+        if(!game.getMaster().equals(this.master)){
             return false;
         }
-        if(game.getMasterIP() != master.getIP()){
+        if(!game.getNetworkSettings().equals(this.gameNetworkSettings)){
             return false;
         }
-        GameSettings otherSettings = game.getGameSettings();
-        if(otherSettings.getWidth() != gameSettings.getWidth()
-            || otherSettings.getHeight() != gameSettings.getHeight()
-            || otherSettings.getDeadFoodProb() != gameSettings.getDeadFoodProb()
-            || otherSettings.getStateDelayMS() != gameSettings.getStateDelayMS()
-            || otherSettings.getFoodStatic() != gameSettings.getFoodStatic()) {
+        if(!game.getGameSettings().equals(this.gameSettings)) {
             return false;
         }
         return true;
     }
 
     @Override
-    public String getMasterIP() {
-        return null;
+    public MasterNode getMaster() {
+        return master;
     }
 
     @Override
