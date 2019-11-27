@@ -14,19 +14,21 @@ public interface GameSettings {
      */
     SettingConstants<Integer> fieldWidth = new SettingConstants<>(10, 40, 100);
     SettingConstants<Integer> fieldHeight = new SettingConstants<>(10, 30, 100);
-    SettingConstants<Integer> foodStatic = new SettingConstants<>(0, 1, 100);
-    SettingConstants<Integer> StateDelayMS = new SettingConstants<>(1, 1000, 1000);
-    SettingConstants<Float> foodProb = new SettingConstants<>(0F, 0.1F, 1F);
+    SettingConstants<Integer> fieldFoodStatic = new SettingConstants<>(0, 1, 100);
+    SettingConstants<Integer> fieldStateDelayMS = new SettingConstants<>(1, 1000, 1000);
+    SettingConstants<Float> fieldFoodProb = new SettingConstants<>(0F, 0.1F, 1F);
 
     void setWidth(int width);
     void setHeight(int height);
     void setFoodStatic(int foodStatic);
-    void setDeadFoodProb(int deadFoodProb);
+    void setDeadFoodProb(float deadFoodProb);
     void setStateDelayMs(int stateDelayMs);
 
     int getWidth();
     int getHeight();
     int getFoodStatic();
-    int getDeadFoodProb();
+    float getDeadFoodProb();
     int getStateDelayMS();
+
+    boolean equals(GameSettings gameSettings);
 }
