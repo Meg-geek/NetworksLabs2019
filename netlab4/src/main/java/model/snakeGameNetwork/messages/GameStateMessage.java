@@ -6,7 +6,6 @@ import model.networkUtils.*;
 import model.snakeGame.Point;
 import model.snakeGame.Snake;
 import model.snakeGame.SnakeGamePlayer;
-import model.snakeGameNetwork.SnakeNetworkUser;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +13,12 @@ import java.util.List;
 public class GameStateMessage extends Message {
     private List<Coordinates> foodCoordsList;
     private int stateOrder;
+    private List <SnakeGamePlayerI> gamersList = new ArrayList<>();
     private List<SnakeI> snakesList = new ArrayList<>();
-    private List<Player> playersList = new ArrayList<>();
-    private List<NetworkUser> nodesList = new ArrayList<>();
+    //private List<Player> playersList = new ArrayList<>();
+    //private List<NetworkUser> nodesList = new ArrayList<>();
+    private NetworkUser deputy;
+   // private SnakesProto.GameConfig gameConfig;
 
     public GameStateMessage(BasicMessageInfo messageInfo, SnakesProto.GameState message){
         super(messageInfo);
@@ -24,17 +26,23 @@ public class GameStateMessage extends Message {
         this.stateOrder = message.getStateOrder();
         makeSnakesList(message);
         makePlayersList(message);
-        makeUsersList(message);
+        //makeUsersList(message);
     }
-
+/*
     private void makeUsersList(SnakesProto.GameState gameState){
         List<SnakesProto.GamePlayer> gamePlayersList = gameState.getPlayers().getPlayersList();
         for(SnakesProto.GamePlayer player : gamePlayersList){
             NodeRole role = getRole(player.getRole());
+            if(role == NodeRole.DEPUTY){
+                deputy = new SnakeNetworkUser(player.getId(), role,
+                        player.getIpAddress(), player.getPort());
+            }
             nodesList.add(new SnakeNetworkUser(player.getId(), role,
                     player.getIpAddress(), player.getPort()));
         }
     }
+
+ */
 
     private NodeRole getRole(SnakesProto.NodeRole protoRole){
         switch (protoRole){
@@ -54,7 +62,8 @@ public class GameStateMessage extends Message {
     private void makePlayersList(SnakesProto.GameState gameState){
         List<SnakesProto.GamePlayer> gamePlayersList = gameState.getPlayers().getPlayersList();
         for(SnakesProto.GamePlayer player : gamePlayersList){
-            playersList.add(new SnakeGamePlayer(player.getId(), player.getName(), player.getScore()));
+            gamersList.add(new SnakeGamePlayer(player.getId(), player.getName(), player.getScore(),
+                                player.getIpAddress(), player.getPort(), getRole(player.getRole())));
         }
     }
 
@@ -123,10 +132,18 @@ public class GameStateMessage extends Message {
     }
 
     public List<NetworkUser> getNodesList() {
-        return nodesList;
+        return new ArrayList<>(gamersList);
     }
 
     public List<Player> getPlayersList() {
-        return playersList;
+        return new ArrayList<>(gamersList);
+    }
+
+    public NetworkUser getDeputy(){
+        return deputy;
+    }
+
+    public List<SnakeGamePlayerI> getSnakeGamePlayersList(){
+        return gamersList;
     }
 }
