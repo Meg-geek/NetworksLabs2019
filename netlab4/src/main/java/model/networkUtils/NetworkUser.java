@@ -11,6 +11,7 @@ public interface NetworkUser {
    // void sendMessage(Message message, List<NetworkUser> usersList);
     Date getLastActivity();
     void refreshActivity();
+    String getName();
     boolean equals(Object o);
   //  void recieveMessage(Message message);
 }
