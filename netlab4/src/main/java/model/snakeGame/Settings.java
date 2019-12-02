@@ -5,7 +5,7 @@ import model.networkUtils.GameNetworkSettings;
 
 public class Settings implements GameNetworkSettings, GameSettings {
     private int width, height, foodStatic, stateDelayMS;
-    private float deadFoodProb;
+    private float deadFoodProb, foodPerPlayer;
     private int pingDelayMS, nodeTimeoutMS;
 
     public Settings(){
@@ -16,6 +16,7 @@ public class Settings implements GameNetworkSettings, GameSettings {
         deadFoodProb = fieldFoodProb.getDefaultValue();
         pingDelayMS = pingDelayMSConst.getDefaultValue();
         nodeTimeoutMS = nodeTimeoutMSConst.getDefaultValue();
+        foodPerPlayer = fieldFoodPerPlayer.getDefaultValue();
     }
 
     @Override
@@ -54,6 +55,13 @@ public class Settings implements GameNetworkSettings, GameSettings {
     }
 
     @Override
+    public void setFoodPerPlayer(float foodPerPlayer) {
+        if(foodPerPlayer <= fieldFoodProb.getMaxValue() && foodPerPlayer >= fieldFoodPerPlayer.getMinValue()){
+            this.foodPerPlayer = foodPerPlayer;
+        }
+    }
+
+    @Override
     public int getWidth() {
         return width;
     }
@@ -76,6 +84,11 @@ public class Settings implements GameNetworkSettings, GameSettings {
     @Override
     public int getStateDelayMS() {
         return stateDelayMS;
+    }
+
+    @Override
+    public float getFoodPerPlayer() {
+        return foodPerPlayer;
     }
 
     @Override
