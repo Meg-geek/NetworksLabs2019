@@ -7,7 +7,16 @@ import model.utils.Converter;
 public class GameConfigConverter implements Converter<Settings, SnakesProto.GameConfig> {
     @Override
     public SnakesProto.GameConfig convert(Settings settings){
-        return null;
+        return  SnakesProto.GameConfig.newBuilder()
+                .setDeadFoodProb(settings.getDeadFoodProb())
+                .setFoodPerPlayer(settings.getFoodPerPlayer())
+                .setFoodStatic(settings.getFoodStatic())
+                .setHeight(settings.getHeight())
+                .setWidth(settings.getWidth())
+                .setNodeTimeoutMs(settings.getNodeTimeoutMs())
+                .setPingDelayMs(settings.getPingDelayMs())
+                .setStateDelayMs(settings.getStateDelayMS())
+                .build();
     }
 
     @Override
