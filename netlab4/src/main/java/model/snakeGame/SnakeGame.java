@@ -1,202 +1,157 @@
 package model.snakeGame;
 
+import model.game.Direction;
 import model.game.Game;
-import model.game.GameField;
 import model.game.GameSettings;
-import model.game.Player;
+import model.game.SnakeGamePlayerI;
 import model.networkUtils.*;
-import model.snakeGameNetwork.messages.GameStateMessage;
-import model.snakeGameNetwork.messages.RoleChangeMessage;
-import model.snakeGameNetwork.messages.SteerMessage;
+import model.snakeGameNetwork.SnakeGameACKManager;
+import model.snakeGameNetwork.SnakeNetworkUser;
+import model.snakeGameNetwork.messages.*;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class SnakeGame implements Game, NetworkGame {
-    private final int THREADS_AMOUNT = 1;
-    private final int INIT_DELAY = 0;
-    private ScheduledThreadPoolExecutor scheduledThreadPool = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
+    private NetworkApp app;
     private GameSettings gameSettings;
     private GameNetworkSettings gameNetworkSettings;
-    private GameField gameField;
-    private MasterNode master;
-    private NetworkUser me;
-    private NetworkApp app;
-    private AtomicLong msgSeq = new AtomicLong(0);
-    private List<NetworkUser> networkUserList;
-    private boolean alive = true;
+    private List<SnakeGamePlayerI> playersList;
+    private MasterNode masterNode;
+    private final int FIRST_MSG_SEQ = 0;
+    private AtomicLong msgSeq = new AtomicLong(FIRST_MSG_SEQ);
+    private SnakeGamePlayerI myPlayer;
+    private boolean isWaitingForId = true;
+    private ACKManager ackManager;
+    private final int THREADS_AMOUNT = 2;
+    private ScheduledThreadPoolExecutor threadPoolExecutor = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
+    private final int INIT_DELAY_MS = 10;
+    private final int ACK_DELAY_MS = 100;
 
-    //если мастер конструктор и если не мастер?
-    /*
-    SnakeGame(GameSettings gameSettings){
-        this.gameSettings = gameSettings;
-    }
-    */
-
-
-    public SnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings,
-              List<NetworkUser> usersList, List<Player> playersList, MasterNode master){
+    //from Announcment message
+    public SnakeGame(NetworkApp app,
+                     GameSettings settings,
+                     GameNetworkSettings networkSettings,
+                     List<SnakeGamePlayerI> playersList,
+                     MasterNode masterNode
+                     ){
         this.app = app;
-        this.gameSettings = gameSettings;
-        this.gameNetworkSettings = gameNetworkSettings;
-        this.master = master;
+        this.gameSettings = settings;
+        this.gameNetworkSettings = networkSettings;
+        this.playersList = playersList;
+        this.masterNode = masterNode;
     }
 
     @Override
-    public void start() {
-       scheduledThreadPool.scheduleWithFixedDelay(new MovementThread(gameField),
-               INIT_DELAY,
-               gameSettings.getStateDelayMS(),
-               TimeUnit.MILLISECONDS);
+    public void setSnakeDirection(Direction direction) {
+        sendMessage(new SteerMessage(msgSeq.getAndIncrement(), myPlayer.getID(), masterNode.getID(),
+                direction));
     }
 
-    private void changeRole(RoleChangeMessage message){
-        NodeRole senderRole = message.getSenderRole(),
-                recieverRole = message.getRecieverRole();
-        if(senderRole == NodeRole.MASTER){
-            master.replaceMaster();
-        }
-        //осознанно выходящий игрок
-        if(senderRole == NodeRole.VIEWER){
-            removeUser(message.getSenderID());
-        }
-        //от главного к умершему
-        if(recieverRole == NodeRole.VIEWER){
-            alive = false;
-        }
-        if(recieverRole == NodeRole.DEPUTY){
-            master.replaceMaster();
-        }
-        //мы стали заместителем
-        if(recieverRole == NodeRole.MASTER){
-            becomeMaster();
-        }
+    private void sendMessage(Message message){
+        app.sendMessage(message, new ArrayList<>(){{add(masterNode);}});
+    }
+
+    @Override
+    public void quitGame() {
+        sendMessage(new RoleChangeMessage(msgSeq.getAndIncrement(), myPlayer.getID(), masterNode.getID(),
+                NodeRole.VIEWER, null));
+        threadPoolExecutor.shutdown();
+        threadPoolExecutor.shutdownNow();
+    }
+
+    public void startGame(){
+        sendMessage(new JoinMessage(msgSeq.getAndIncrement(), myPlayer.getName()));
+        ackManager = new SnakeGameACKManager(this, gameNetworkSettings.getNodeTimeoutMs());
+        threadPoolExecutor.scheduleWithFixedDelay(ackManager, INIT_DELAY_MS, ACK_DELAY_MS, TimeUnit.MILLISECONDS);
+        //ping sender
+        threadPoolExecutor.scheduleWithFixedDelay(()->{
+            if(new Date().getTime() - masterNode.getLastActivity().getTime() > gameNetworkSettings.getPingDelayMs()){
+                sendMessage(new PingMessage(msgSeq.getAndIncrement(), myPlayer.getID(), masterNode.getID()));
+            }
+        }, INIT_DELAY_MS, gameNetworkSettings.getPingDelayMs(), TimeUnit.MILLISECONDS);
+        //controls master
+        threadPoolExecutor.scheduleWithFixedDelay(()->{
+            if(new Date().getTime() - masterNode.getLastActivity().getTime() > gameNetworkSettings.getNodeTimeoutMs()){
+                if(masterNode.getDeputy().equals(myPlayer)){
+                    becomeMaster();
+                }
+                masterNode.replaceMaster();
+            }
+        }, INIT_DELAY_MS, gameNetworkSettings.getNodeTimeoutMs(), TimeUnit.MILLISECONDS);
     }
 
     private void becomeMaster(){
-        master.setDeputy(me);
-        master.replaceMaster();
-        for(NetworkUser user : networkUserList){
-            Message message = new RoleChangeMessage(new BasicMessageInfo(msgSeq.getAndIncrement(),
-                    me.getID(), user.getID()), NodeRole.MASTER, null);
-            app.sendMessage(message, new ArrayList<>(){{add(user);}});
-        }
-        scheduledThreadPool.scheduleWithFixedDelay(new MovementThread(gameField),
-                INIT_DELAY,
-                gameSettings.getStateDelayMS(),
-                TimeUnit.MILLISECONDS);
-    }
 
-    private void removeUser(int userID){
-        NetworkUser userToRemove = null;
-        for(NetworkUser user : networkUserList){
-            if(user.getID() == userID){
-                userToRemove = user;
-            }
-        }
-        if(userToRemove != null){
-            networkUserList.remove(userToRemove);
-        }
     }
 
     @Override
     public void handleMessage(Message message) {
         switch (message.getType()){
-            case ROLE_CHANGE:
-                if(message instanceof RoleChangeMessage){
-                    changeRole((RoleChangeMessage)message);
+            case ACK:
+                if(message instanceof ACKMessage){
+                    handleACK((ACKMessage)message);
                 }
                 break;
-            case STEER:
-                if(message instanceof SteerMessage){
-                    gameField.setSnakeDirection(message.getSenderID(), ((SteerMessage) message).getDirection());
+            case ERROR:
+                if(message instanceof ErrorMessage){
+                    app.handleError((ErrorMessage)message);
+                    quitGame();
                 }
                 break;
-            case JOIN:
-                if(){
-
-                }
-                break;
-            case STATE:
-                if(message instanceof GameStateMessage){
-                    gameField.changeState((GameStateMessage)message);
-                   // checkDeputy(((GameStateMessage)message).getDeputy());
-                }
-                break;
-
-
+        }
+        if(message.getSenderID() == masterNode.getID()){
+            masterNode.refreshActivity();
         }
     }
 
-
-    @Override
-    public void quitGame() {
-        if(me == master.getMaster()){
-            Message message = new RoleChangeMessage(new BasicMessageInfo(msgSeq.getAndIncrement(), master.getMaster().getID(),
-                    master.getDeputy().getID()), null, NodeRole.MASTER);
-            app.sendMessage(message, new ArrayList<>(){{add(master.getDeputy());}});
-            scheduledThreadPool.shutdown();
-            scheduledThreadPool.shutdownNow();
+    private void handleACK(ACKMessage ackMessage){
+        if(isWaitingForId){
+            myPlayer = new SnakeGamePlayer(ackMessage.getReceiverID(),
+                    myPlayer.getName(),
+                    myPlayer.getScore(),
+                    myPlayer.getIP(),
+                    myPlayer.getPort(),
+                    myPlayer.getRole());
+            isWaitingForId = false;
         } else {
-            Message message = new RoleChangeMessage(new BasicMessageInfo(msgSeq.getAndIncrement(),
-                    me.getID(), master.getMaster().getID()), NodeRole.VIEWER, null);
-            app.sendMessage(message, new ArrayList<>(){{add(master.getMaster());}});
+            ackManager.ackRecv(ackMessage.getNumber(), new SnakeNetworkUser(ackMessage.getSenderID(),
+                    null, ackMessage.getIp(), ackMessage.getPort()));
         }
-    }
-
-    @Override
-    public long getAndIncrementMsgSeq() {
-        return msgSeq.getAndIncrement();
-    }
-
-    @Override
-    public int getMyID() {
-        return 0;
     }
 
     @Override
     public GameNetworkSettings getNetworkSettings() {
-        return null;
+        return gameNetworkSettings;
     }
 
     @Override
     public GameSettings getGameSettings() {
-        return null;
+        return gameSettings;
     }
-
-    /*@Override
-    public List<NetworkUser> getUsersList() {
-        return null;
-    }*/
 
     @Override
     public boolean equals(NetworkGame game) {
-        if(!game.getMaster().equals(this.master)){
+        if(!game.getMaster().equals(this.masterNode)){
             return false;
         }
         if(!game.getNetworkSettings().equals(this.gameNetworkSettings)){
             return false;
         }
-        if(!game.getGameSettings().equals(this.gameSettings)) {
-            return false;
-        }
-        return true;
+        return game.getGameSettings().equals(this.gameSettings);
     }
 
     @Override
     public MasterNode getMaster() {
-        return master;
+        return masterNode;
     }
 
     @Override
-    public boolean equals(Object obj){
-        if(obj instanceof NetworkGame){
-            return equals((NetworkGame)obj);
-        }
-        return super.equals(obj);
-    }
+    public void sendMessage(Message message, List<NetworkUser> usersList) {
 
+    }
 }
