@@ -1,25 +1,22 @@
 package model.snakeGameNetwork;
 
-import model.networkUtils.ACKManager;
-import model.networkUtils.Message;
-import model.networkUtils.NetworkApp;
-import model.networkUtils.NetworkUser;
+import model.networkUtils.*;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class SnakeGameACKManager implements ACKManager, Runnable {
+public class SnakeGameACKManager implements ACKManager{
     private Map<Message, List<NetworkUser>> messageUsersListMap = new ConcurrentHashMap<>();
     private Map<Long, Message> numberMessageMap = new ConcurrentHashMap<>();
-    private AtomicInteger nodeTimeoutMS  = new AtomicInteger(0);
-    private NetworkApp networkApp;
+    private int nodeTimeoutMS;
+    private NetworkGame networkGame;
 
-    public SnakeGameACKManager(NetworkApp networkApp){
-        this.networkApp = networkApp;
+    public SnakeGameACKManager(NetworkGame networkGame, int nodeTimeoutMS){
+        this.networkGame = networkGame;
+        this.nodeTimeoutMS = nodeTimeoutMS;
     }
 
     @Override
@@ -33,7 +30,7 @@ public class SnakeGameACKManager implements ACKManager, Runnable {
             if(messageListEntry.getValue().size() == 0){
                 messagesRemoveList.add(messageListEntry.getKey());
             } else {
-                networkApp.sendMessage(messageListEntry.getKey(), messageListEntry.getValue());
+                networkGame.sendMessage(messageListEntry.getKey(), messageListEntry.getValue());
             }
         }
         for(Message messageRemove : messagesRemoveList){
@@ -43,11 +40,10 @@ public class SnakeGameACKManager implements ACKManager, Runnable {
     }
 
     private void refreshList(List<NetworkUser> usersList){
-        int nodeTimeout = nodeTimeoutMS.get();
         long nowMS = new Date().getTime();
         List<NetworkUser> usersRemoveList = new ArrayList<>();
         for(NetworkUser user : usersList){
-            if(nowMS - user.getLastActivity().getTime() < nodeTimeout){
+            if(nowMS - user.getLastActivity().getTime() < nodeTimeoutMS){
                 usersRemoveList.add(user);
             }
         }
@@ -73,8 +69,4 @@ public class SnakeGameACKManager implements ACKManager, Runnable {
         messageUsersListMap.put(message, usersList);
     }
 
-    @Override
-    public void changeTimeout(int newTimeout) {
-        nodeTimeoutMS.set(newTimeout);
-    }
 }
