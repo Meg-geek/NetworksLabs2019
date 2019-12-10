@@ -1,9 +1,6 @@
 package model.snakeGame;
 
-import model.game.Direction;
-import model.game.Game;
-import model.game.GameSettings;
-import model.game.SnakeGamePlayerI;
+import model.game.*;
 import model.networkUtils.*;
 import model.snakeGameNetwork.SnakeGameACKManager;
 import model.snakeGameNetwork.SnakeNetworkUser;
@@ -12,6 +9,8 @@ import model.snakeGameNetwork.messages.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,9 +30,11 @@ public class SnakeGame implements Game, NetworkGame {
     private ScheduledThreadPoolExecutor threadPoolExecutor = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
     private final int INIT_DELAY_MS = 10;
     private final int ACK_DELAY_MS = 100;
+    private Map<Integer, SnakeGamePlayerI> idPlayerMap = new ConcurrentHashMap<>();
+    private GameField gameField;
 
     //from Announcment message
-    public SnakeGame(NetworkApp app,
+    SnakeGame(NetworkApp app,
                      GameSettings settings,
                      GameNetworkSettings networkSettings,
                      List<SnakeGamePlayerI> playersList,
@@ -44,6 +45,7 @@ public class SnakeGame implements Game, NetworkGame {
         this.gameNetworkSettings = networkSettings;
         this.playersList = playersList;
         this.masterNode = masterNode;
+        gameField = new SnakeGameField(gameSettings);
     }
 
     @Override
@@ -53,7 +55,9 @@ public class SnakeGame implements Game, NetworkGame {
     }
 
     private void sendMessage(Message message){
-        app.sendMessage(message, new ArrayList<>(){{add(masterNode);}});
+        List <NetworkUser> usersList = new ArrayList<>(){{add(masterNode);}};
+        app.sendMessage(message, usersList);
+        ackManager.addMessage(message, usersList);
     }
 
     @Override
@@ -86,7 +90,10 @@ public class SnakeGame implements Game, NetworkGame {
     }
 
     private void becomeMaster(){
-
+        MasterSnakeGame masterSnakeGame = new MasterSnakeGame(app, gameSettings, gameNetworkSettings,
+                gameField.getState(), masterNode);
+        app.startAsMaster(this, masterSnakeGame);
+        quitGame();
     }
 
     @Override
@@ -99,13 +106,50 @@ public class SnakeGame implements Game, NetworkGame {
                 break;
             case ERROR:
                 if(message instanceof ErrorMessage){
-                    app.handleError((ErrorMessage)message);
                     quitGame();
+                }
+                break;
+            case PING:
+                if(message instanceof PingMessage && message.getSenderID() == masterNode.getID()){
+                    masterNode.refreshActivity();
+                }
+                break;
+            case ROLE_CHANGE:
+                if(message instanceof RoleChangeMessage){
+                    handleRoleChangeMsg((RoleChangeMessage)message);
+                }
+                break;
+            case STATE:
+                if(message instanceof GameStateMessage){
+                    gameField.changeState((GameStateMessage)message);
                 }
                 break;
         }
         if(message.getSenderID() == masterNode.getID()){
             masterNode.refreshActivity();
+        }
+    }
+
+    private void handleRoleChangeMsg(RoleChangeMessage roleChangeMessage){
+        if(roleChangeMessage.getSenderRole() == NodeRole.MASTER){
+            masterNode.setDeputy(new MasterPlayer(new SnakeNetworkUser(roleChangeMessage.getSenderID(),
+                    roleChangeMessage.getSenderRole(), roleChangeMessage.getIp(), roleChangeMessage.getPort())));
+            masterNode.replaceMaster();
+            masterNode.refreshActivity();
+        }
+        if(roleChangeMessage.getRecieverRole() == NodeRole.VIEWER){
+            myPlayer.changeRole(NodeRole.VIEWER);
+        }
+        if(roleChangeMessage.getRecieverRole() == NodeRole.DEPUTY){
+            if(roleChangeMessage.getReceiverID() == myPlayer.getID()){
+                //нас назначили заместителем
+                masterNode.setDeputy(myPlayer);
+            } else {
+                SnakeGamePlayerI playerI = idPlayerMap.get(roleChangeMessage.getReceiverID());
+                if(playerI != null){
+                    masterNode.setDeputy(playerI);
+                }
+            }
         }
     }
 
@@ -152,6 +196,6 @@ public class SnakeGame implements Game, NetworkGame {
 
     @Override
     public void sendMessage(Message message, List<NetworkUser> usersList) {
-
+        app.sendMessage(message, usersList);
     }
 }
