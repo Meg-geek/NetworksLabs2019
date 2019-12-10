@@ -7,8 +7,8 @@ import model.networkUtils.MessageType;
 public class JoinMessage extends Message {
     private String playerName;
 
-    public JoinMessage(BasicMessageInfo messageInfo, String playerName){
-        super(messageInfo);
+    public JoinMessage(long msgSeq, String playerName){
+        super(new BasicMessageInfo(msgSeq));
         this.playerName = playerName;
     }
 

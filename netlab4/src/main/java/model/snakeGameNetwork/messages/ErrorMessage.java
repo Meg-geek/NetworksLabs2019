@@ -7,8 +7,8 @@ import model.networkUtils.MessageType;
 public class ErrorMessage extends Message {
     private String errorMessage;
 
-    public ErrorMessage(BasicMessageInfo messageInfo, String errorMessage){
-        super(messageInfo);
+    public ErrorMessage(long msgSeq, String errorMessage){
+        super(new BasicMessageInfo(msgSeq));
         this.errorMessage = errorMessage;
     }
 
