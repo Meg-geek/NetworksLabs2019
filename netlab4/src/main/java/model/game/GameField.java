@@ -4,6 +4,11 @@ import model.snakeGameNetwork.messages.GameStateMessage;
 
 public interface GameField {
     void moveSnakes();
-    void changeState(GameStateMessage gameState);
-    void setSnakeDirection(int snakeID, Direction direction);
+    void changeState(GameStateMessage gameStateMessage);
+    //void setSnakeDirection(int snakeID, Direction direction);
+    GameState getState();
+    boolean addPlayer(SnakeGamePlayerI player);
+    boolean isJoinable();
+    void setSnakeDirection(int playerID, Direction direction);
+    void removePlayer(int playerId);
 }

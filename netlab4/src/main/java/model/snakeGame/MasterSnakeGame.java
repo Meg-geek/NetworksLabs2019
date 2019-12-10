@@ -46,8 +46,12 @@ public class MasterSnakeGame implements Game, NetworkGame {
 
     //when we become master after normal
     MasterSnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings,
-                    GameState gameState, MasterNode masterNode){
-
+                    GameState gameState, MasterNode masterNode, long msgSeq){
+        this.app = app;
+        this.gameSettings = gameSettings;
+        this.gameNetworkSettings = gameNetworkSettings;
+        this.master = masterNode;
+        this.gameField = new SnakeGameField(gameSettings);
     }
 
    // become a master
@@ -236,7 +240,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
 
     private Message getAnnouncment() {
         GameStateMessage gameState = (GameStateMessage) gameField.getState();
-        return new AnnouncmentMessage(gameSettings, gameNetworkSettings,
+        return new AnnouncmentMessage(msgSeq.getAndIncrement(), gameSettings, gameNetworkSettings,
                 gameState.getSnakeGamePlayersList(), gameField.isJoinable());
     }
 

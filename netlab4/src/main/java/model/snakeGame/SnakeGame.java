@@ -91,7 +91,7 @@ public class SnakeGame implements Game, NetworkGame {
 
     private void becomeMaster(){
         MasterSnakeGame masterSnakeGame = new MasterSnakeGame(app, gameSettings, gameNetworkSettings,
-                gameField.getState(), masterNode);
+                gameField.getState(), masterNode, msgSeq.get());
         app.startAsMaster(this, masterSnakeGame);
         quitGame();
     }
