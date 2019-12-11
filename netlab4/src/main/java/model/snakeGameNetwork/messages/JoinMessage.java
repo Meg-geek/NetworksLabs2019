@@ -7,6 +7,11 @@ import model.networkUtils.MessageType;
 public class JoinMessage extends Message {
     private String playerName;
 
+    public JoinMessage(long msgSeq, int senderId, int receiverId, String playerName){
+        super(new BasicMessageInfo(msgSeq, senderId, receiverId));
+        this.playerName = playerName;
+    }
+
     public JoinMessage(long msgSeq, String playerName){
         super(new BasicMessageInfo(msgSeq));
         this.playerName = playerName;

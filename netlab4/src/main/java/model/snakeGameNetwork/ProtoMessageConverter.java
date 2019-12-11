@@ -2,17 +2,34 @@ package model.snakeGameNetwork;
 
 import me.ippolitov.fit.snakes.SnakesProto;
 import model.game.*;
-import model.networkUtils.BasicMessageInfo;
 import model.networkUtils.Message;
 import model.networkUtils.MessageConverter;
 import model.networkUtils.NodeRole;
+import model.snakeGame.Settings;
+import model.snakeGameNetwork.converters.*;
 import model.snakeGameNetwork.messages.*;
+import model.utils.Converter;
+import model.utils.ConvertionExeption;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ProtoMessageConverter implements MessageConverter {
     public static final int MAX_MSG_SIZE;
+
+    private Converter<List<SnakeI>, List<SnakesProto.GameState.Snake>> snakesListConverter
+            = new SnakesConverter();
+    private Converter<List<Coordinates>, List<SnakesProto.GameState.Coord>> coordinatesListConverter
+            = new CoordinatesListConverter();
+    private Converter<List<SnakeGamePlayerI>, SnakesProto.GamePlayers> playersListConverter
+            = new PlayersConverter();
+    private Converter<Settings, SnakesProto.GameConfig> gameConfigConverter
+            = new GameConfigConverter();
+    private Converter<Direction, SnakesProto.Direction> directionConverter
+            = new DirectionConverter();
+    private Converter<NodeRole, SnakesProto.NodeRole> nodeRoleConverter
+            = new NodeRoleConverter();
+    private Converter<Coordinates, SnakesProto.GameState.Coord> coordinatesConverter
+            = new CoordinatesConverter();
 
     static{
         MAX_MSG_SIZE = GameSettings.fieldHeight.getDefaultValue() * GameSettings.fieldWidth.getDefaultValue()/25
@@ -20,30 +37,52 @@ public class ProtoMessageConverter implements MessageConverter {
     }
 
     @Override
-    public Message protoToMessage(SnakesProto.GameMessage message) {
-        BasicMessageInfo basicMessageInfo = new BasicMessageInfo(message.getMsgSeq(),
-                message.getSenderId(), message.getReceiverId());
+    public Message protoToMessage(SnakesProto.GameMessage message) throws ConvertionExeption{
         switch(message.getTypeCase()){
             case ACK:
-                return new ACKMessage(basicMessageInfo);
+                return new ACKMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId());
             case JOIN:
-                return new JoinMessage(basicMessageInfo,
+                return new JoinMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId(),
                         message.getJoin().getName());
             case PING:
-                return new PingMessage(basicMessageInfo);
+                return new PingMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId());
             case ERROR:
-                return new ErrorMessage(basicMessageInfo,
+                return new ErrorMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId(),
                         message.getError().getErrorMessage());
             case STATE:
-                return new GameStateMessage(basicMessageInfo,
-                        message.getState().getState());
+                return new GameStateMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId(),
+                        snakesListConverter.inverseConvert(message.getState().getState().getSnakesList()),
+                        coordinatesListConverter.inverseConvert(message.getState().getState().getFoodsList()),
+                        playersListConverter.inverseConvert(message.getState().getState().getPlayers()),
+                        gameConfigConverter.inverseConvert(message.getState().getState().getConfig())
+                );
             case STEER:
-                return new SteerMessage(basicMessageInfo,
-                        message.getSteer().getDirection());
+                return new SteerMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId(),
+                        directionConverter.inverseConvert(message.getSteer().getDirection()));
             case ROLE_CHANGE:
-                return new RoleChangeMessage(basicMessageInfo, message.getRoleChange());
+                return new RoleChangeMessage(message.getMsgSeq(),
+                        message.getSenderId(),
+                        message.getReceiverId(),
+                        nodeRoleConverter.inverseConvert(message.getRoleChange().getSenderRole()),
+                        nodeRoleConverter.inverseConvert(message.getRoleChange().getReceiverRole())
+                        );
             case ANNOUNCEMENT:
-                return new AnnouncmentMessage(basicMessageInfo, message.getAnnouncement());
+                return new AnnouncementMessage(message.getMsgSeq(),
+                        gameConfigConverter.inverseConvert(message.getAnnouncement().getConfig()),
+                        playersListConverter.inverseConvert(message.getAnnouncement().getPlayers()),
+                        message.getAnnouncement().getCanJoin());
             case TYPE_NOT_SET:
                 //or log?
                 System.out.println("Message type does not set");
@@ -53,117 +92,107 @@ public class ProtoMessageConverter implements MessageConverter {
     }
 
     @Override
-    public SnakesProto.GameMessage messageToProto(Message message) {
+    public SnakesProto.GameMessage messageToProto(Message message) throws ConvertionExeption{
         switch(message.getType()){
             case STATE:
                 if(message instanceof GameStateMessage){
-                    return gameStateMessage((GameStateMessage)message);
+                    GameStateMessage gameStateMessage = (GameStateMessage)message;
+                    return getGameMessageBuilder(gameStateMessage)
+                            .setState(SnakesProto.GameMessage.StateMsg
+                                    .newBuilder()
+                                    .setState(SnakesProto.GameState
+                                            .newBuilder()
+                                            .setConfig(gameConfigConverter
+                                                    .convert(gameStateMessage.getGameSettings()))
+                                            .setPlayers(playersListConverter
+                                                    .convert(gameStateMessage.getSnakeGamePlayersList()))
+                                            .setStateOrder(gameStateMessage.getStateOrder())
+                                            .addAllFoods(coordinatesListConverter.convert(gameStateMessage.getFoodCoordsList()))
+                                            .addAllSnakes(snakesListConverter.convert(gameStateMessage.getSnakesList()))
+                                            .build())
+                                    .build())
+                            .build();
                 }
                 break;
-
-
+            case ACK:
+                if(message instanceof ACKMessage){
+                    getGameMessageBuilder(message).build();
+                }
+                break;
+            case JOIN:
+                if(message instanceof JoinMessage){
+                    JoinMessage joinMessage = (JoinMessage)message;
+                    return getGameMessageBuilder(message)
+                            .setJoin(SnakesProto.GameMessage.JoinMsg
+                                    .newBuilder()
+                                    .setName(joinMessage.getPlayerName())
+                                    .build())
+                            .build();
+                }
+                break;
+            case ERROR:
+                if(message instanceof ErrorMessage){
+                    ErrorMessage errorMessage = (ErrorMessage)message;
+                    return getGameMessageBuilder(errorMessage)
+                            .setError(SnakesProto.GameMessage.ErrorMsg
+                                    .newBuilder()
+                                    .setErrorMessage(errorMessage.getErrorMessage())
+                                    .build())
+                            .build();
+                }
+                break;
+            case STEER:
+                if(message instanceof SteerMessage){
+                    SteerMessage steerMessage = (SteerMessage)message;
+                    return getGameMessageBuilder(message)
+                            .setSteer(SnakesProto.GameMessage.SteerMsg
+                                    .newBuilder()
+                                    .setDirection(directionConverter
+                                            .convert(steerMessage.getDirection()))
+                                    .build())
+                            .build();
+                }
+                break;
+            case ROLE_CHANGE:
+                if(message instanceof RoleChangeMessage){
+                    RoleChangeMessage roleChangeMessage = (RoleChangeMessage)message;
+                    return getGameMessageBuilder(message)
+                            .setRoleChange(SnakesProto.GameMessage.RoleChangeMsg
+                                    .newBuilder()
+                                    .setSenderRole(nodeRoleConverter
+                                            .convert(roleChangeMessage.getSenderRole()))
+                                    .setReceiverRole(nodeRoleConverter
+                                            .convert(roleChangeMessage.getRecieverRole()))
+                                    .build())
+                            .build();
+                }
+                break;
+            case PING:
+                if(message instanceof PingMessage){
+                    return getGameMessageBuilder(message).build();
+                }
+                break;
+            case ANNOUNCEMENT:
+                if(message instanceof AnnouncementMessage){
+                    AnnouncementMessage announcementMessage = (AnnouncementMessage)message;
+                    return getGameMessageBuilder(announcementMessage)
+                            .setAnnouncement(SnakesProto.GameMessage.AnnouncementMsg
+                                    .newBuilder()
+                                    .setCanJoin(announcementMessage.isJoinable())
+                                    .setPlayers(playersListConverter.convert(announcementMessage.getPlayersList()))
+                                    .setConfig(gameConfigConverter.convert(announcementMessage.getGameSettings()))
+                                    .build())
+                            .build();
+                }
+                break;
         }
         return null;
     }
 
-    private SnakesProto.GameMessage gameStateMessage(GameStateMessage message){
-        SnakesProto.GameState.Builder gameStateBuilder = SnakesProto.GameState.newBuilder()
-                        .addAllFoods(toCoordsList(message.getFoodCoordsList()))
-                        .addAllSnakes(toSnakeList(message.getSnakesList()))
-                        .setStateOrder(message.getStateOrder())
-                        .setPlayers(getGamePlayers(message.getSnakeGamePlayersList()))
-                        .setConfig(SnakesProto.GameConfig.getDefaultInstance());
-
-        SnakesProto.GameMessage.Builder gameMessageBuilder = SnakesProto.GameMessage.newBuilder();
-        return gameMessageBuilder.setMsgSeq(message.getNumber())
+    private SnakesProto.GameMessage.Builder getGameMessageBuilder(Message message){
+        return SnakesProto.GameMessage.newBuilder()
                 .setSenderId(message.getSenderID())
                 .setReceiverId(message.getReceiverID())
-                .setState(SnakesProto.GameMessage.StateMsg.newBuilder().setState(gameStateBuilder.build()).build())
-                .build();
-    }
-
-    private SnakesProto.GamePlayers getGamePlayers(List<SnakeGamePlayerI> playersList){
-        SnakesProto.GamePlayers.Builder playersBuilder= SnakesProto.GamePlayers.newBuilder();
-        for(SnakeGamePlayerI player : playersList){
-            SnakesProto.GamePlayer.Builder playerBuilder = SnakesProto.GamePlayer.newBuilder();
-            playersBuilder.addPlayers(playerBuilder.setId(player.getID())
-                                                        .setPort(player.getPort())
-                                                        .setRole(getRole(player.getRole()))
-                                                        .setScore(player.getScore())
-                                                        .setType(SnakesProto.PlayerType.HUMAN)
-                                                        .setIpAddress(player.getIP())
-                                                        .setName(player.getName()).build());
-        }
-        return playersBuilder.build();
-    }
-
-
-    private SnakesProto.NodeRole getRole(NodeRole role){
-        switch(role){
-            case VIEWER:
-                return SnakesProto.NodeRole.VIEWER;
-            case NORMAL:
-                return SnakesProto.NodeRole.NORMAL;
-            case MASTER:
-                return SnakesProto.NodeRole.MASTER;
-            case DEPUTY:
-                return SnakesProto.NodeRole.DEPUTY;
-        }
-        return null;
-    }
-
-    private List<SnakesProto.GameState.Snake> toSnakeList(List<SnakeI> snakesIList){
-        List<SnakesProto.GameState.Snake> snakesList = new ArrayList<>();
-        for(SnakeI snakeI : snakesIList){
-            SnakesProto.GameState.Snake.Builder snakeBuilder = SnakesProto.GameState.Snake.newBuilder();
-            snakesList.add(snakeBuilder.setHeadDirection(toDirection(snakeI.getHeadDirection()))
-                    .addAllPoints(toSnakeBodyList(snakeI.getCoordinatesList()))
-                    .setState((snakeI.isAlive())? SnakesProto.GameState.Snake.SnakeState.ALIVE:
-                            SnakesProto.GameState.Snake.SnakeState.ZOMBIE)
-                    .setPlayerId(snakeI.getPlayerID())
-                    .build());
-        }
-        return snakesList;
-    }
-
-    private List<SnakesProto.GameState.Coord> toSnakeBodyList(List<Coordinates> snakeCoordinatesList){
-        List<SnakesProto.GameState.Coord> coordList = new ArrayList<>();
-        Coordinates prevCoordinate = snakeCoordinatesList.get(0);
-        coordList.add(SnakesProto.GameState.Coord.newBuilder().setX(prevCoordinate.getX())
-                .setY(prevCoordinate.getY()).build());
-        for(int i = 1; i < snakeCoordinatesList.size(); i++){
-            Coordinates curCoordinate = snakeCoordinatesList.get(i);
-            coordList.add(SnakesProto.GameState.Coord.newBuilder()
-                    .setX(curCoordinate.getX() - prevCoordinate.getX())
-                    .setY(curCoordinate.getY() - prevCoordinate.getY())
-                    .build());
-            prevCoordinate = curCoordinate;
-        }
-        return coordList;
-    }
-
-    private SnakesProto.Direction toDirection(Direction direction){
-        switch(direction){
-            case DOWN:
-                return SnakesProto.Direction.DOWN;
-            case UP:
-                return SnakesProto.Direction.UP;
-            case RIGHT:
-                return SnakesProto.Direction.RIGHT;
-            case LEFT:
-                return SnakesProto.Direction.LEFT;
-        }
-        return SnakesProto.Direction.UP;
-    }
-
-    private List<SnakesProto.GameState.Coord> toCoordsList(List<Coordinates> coordinatesList){
-        List<SnakesProto.GameState.Coord> coordList = new ArrayList<>();
-        for(Coordinates coordinates : coordinatesList){
-            coordList.add(SnakesProto.GameState.Coord.newBuilder()
-                            .setX(coordinates.getX())
-                            .setY(coordinates.getY())
-                            .build());
-        }
-        return coordList;
+                .setMsgSeq(message.getNumber());
     }
 }

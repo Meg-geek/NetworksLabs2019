@@ -1,13 +1,12 @@
 package model.snakeGameNetwork.messages;
 
 import model.game.Coordinates;
-import model.game.GameSettings;
 import model.game.SnakeGamePlayerI;
 import model.game.SnakeI;
 import model.networkUtils.BasicMessageInfo;
-import model.networkUtils.GameNetworkSettings;
 import model.networkUtils.Message;
 import model.networkUtils.MessageType;
+import model.snakeGame.Settings;
 
 import java.util.List;
 
@@ -16,18 +15,16 @@ public class GameStateMessage extends Message {
     private int stateOrder;
     private List <SnakeGamePlayerI> gamersList;
     private List<SnakeI> snakesList;
-    private GameSettings gameSettings;
-    private GameNetworkSettings gameNetworkSettings;
+    private Settings gameSettings;
 
     public GameStateMessage(long msgSeq, int senderID, int stateOrder, List<SnakeI> snakesList, List<Coordinates> foodList,
-                            List<SnakeGamePlayerI> playersList, GameSettings settings, GameNetworkSettings networkSettings){
+                            List<SnakeGamePlayerI> playersList, Settings gameSettings){
         super(new BasicMessageInfo(msgSeq, senderID));
         this.stateOrder = stateOrder;
         this.snakesList = snakesList;
         this.foodCoordsList = foodList;
         this.gamersList = playersList;
-        this.gameSettings = settings;
-        this.gameNetworkSettings = networkSettings;
+        this.gameSettings = gameSettings;
     }
 
     public List<Coordinates> getFoodCoordsList(){
@@ -49,5 +46,9 @@ public class GameStateMessage extends Message {
 
     public List<SnakeGamePlayerI> getSnakeGamePlayersList(){
         return gamersList;
+    }
+
+    public Settings getGameSettings() {
+        return gameSettings;
     }
 }

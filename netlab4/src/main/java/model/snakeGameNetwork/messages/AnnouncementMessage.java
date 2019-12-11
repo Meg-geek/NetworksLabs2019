@@ -1,43 +1,36 @@
 package model.snakeGameNetwork.messages;
 
-import model.game.GameSettings;
 import model.game.SnakeGamePlayerI;
 import model.networkUtils.BasicMessageInfo;
-import model.networkUtils.GameNetworkSettings;
 import model.networkUtils.Message;
 import model.networkUtils.MessageType;
+import model.snakeGame.Settings;
 
 import java.util.List;
 
-public class AnnouncmentMessage extends Message {
+public class AnnouncementMessage extends Message {
     private boolean joinable;
-    private GameSettings gameSettings;
-    private GameNetworkSettings networkSettings;
+    private Settings gameSettings;
     private List<SnakeGamePlayerI> playersList;
 
-    public AnnouncmentMessage(long msgSeq, GameSettings settings, GameNetworkSettings networkSettings,
-                              List<SnakeGamePlayerI> playersList, boolean canJoin){
+    public AnnouncementMessage(long msgSeq, Settings settings,
+                               List<SnakeGamePlayerI> playersList, boolean canJoin){
         super(new BasicMessageInfo(msgSeq));
         this.joinable = canJoin;
         this.gameSettings = settings;
-        this.networkSettings = networkSettings;
         this.playersList = playersList;
     }
 
     @Override
     public MessageType getType() {
-        return MessageType.ANNOUNCMENT;
+        return MessageType.ANNOUNCEMENT;
     }
 
     public boolean isJoinable(){
         return joinable;
     }
 
-    public GameNetworkSettings getNetworkSettings(){
-        return networkSettings;
-    }
-
-    public GameSettings getGameSettings(){
+    public Settings getGameSettings(){
         return gameSettings;
     }
 
