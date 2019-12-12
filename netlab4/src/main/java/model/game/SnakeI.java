@@ -1,5 +1,7 @@
 package model.game;
 
+import java.util.List;
+
 public interface SnakeI {
     /**
      * Moves the snake into the given direction
@@ -8,11 +10,6 @@ public interface SnakeI {
      */
     void setDirection(Direction direction);
 
-    /**
-     * Shows if snake is alive
-     * @return true if snake is alive
-     */
-    boolean isAlive();
 
     /**
      * moves the snakes to the next cell,
@@ -20,6 +17,15 @@ public interface SnakeI {
      */
     void move();
 
-    //int getLength();
     int getPlayerID();
+
+    void setSnakeState(SnakeState snakeState);
+    SnakeState getSnakeState();
+
+    Direction getHeadDirection();
+    List<Coordinates> getCoordinatesList();
+    int getScore();
+    void increaseScore(int points);
+    void setDead();
+    boolean isDead();
 }

@@ -14,6 +14,7 @@ public interface FieldManager {
     List<Coordinates> getFoodList();
     void setFoodList(List<Coordinates> foodList);
     void checkSnakes();
+    void addSnake(SnakeI snake);
    // void setFood();
    // void moveSnakes();
 }
