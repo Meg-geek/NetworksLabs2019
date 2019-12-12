@@ -6,13 +6,16 @@ import java.util.*;
 
 public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     private GameSettings gameSettings;
-    private Map<Integer, List<Coordinates>> playerSnakeCoordsMap = new HashMap<>();
+    private Map<Integer, SnakeI> idSnakeMap = new HashMap<>();
     private List<Coordinates> foodList = null;
     private int maxX, maxY;
     private boolean[][] field;
     private static final int NEED_FREE = 5;
     private static final int NOT_FOUND = -5;
     private boolean joinable = true;
+    private final int CRASH_POINTS = 1;
+    private final int SNAKE_NOT_FOUND = -4;
+    private List<ProblemPoint> problemPointList = new ArrayList<>();
 
     SnakeGameFieldManager(GameSettings gameSettings){
         this.gameSettings = gameSettings;
@@ -22,7 +25,30 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     }
 
     @Override
-    public Coordinates getNextCell(Coordinates cell, Direction direction) {
+    public Coordinates getNextCell(Coordinates cell, Direction direction, int playerId) {
+        Coordinates nextCell = getNextCell(cell, direction);
+        if(nextCell.getPointType() == PointType.SNAKE_BODY){
+            SnakeI snake = idSnakeMap.get(getSnakeId(nextCell));
+            if(snake != null){
+                snake.increaseScore(CRASH_POINTS);
+            }
+        }
+        if(nextCell.getPointType() == PointType.SNAKE_TAIL){
+            problemPointList.add(new ProblemPoint(playerId, getSnakeId(nextCell), nextCell));
+        }
+        return nextCell;
+    }
+
+    private int getSnakeId(Coordinates snakePoint){
+        for(SnakeI snake : idSnakeMap.values()){
+            if(snake.getCoordinatesList().contains(snakePoint)){
+                return snake.getPlayerID();
+            }
+        }
+        return SNAKE_NOT_FOUND;
+    }
+
+    private Coordinates getNextCell(Coordinates cell, Direction direction){
         int x = FIRST_COORD, y = FIRST_COORD;
         switch (direction){
             case DOWN:
@@ -61,7 +87,7 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
 
     @Override
     public List<Coordinates> getNewSnakeCoords(int playerID) {
-        if(playerSnakeCoordsMap.containsKey(playerID)){
+        if(idSnakeMap.containsKey(playerID)){
             return null;
         }
         List<Coordinates> snakeBody = findSnakeCoordinates();
@@ -70,7 +96,7 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
             return null;
         }
         updateFoodList();
-        playerSnakeCoordsMap.put(playerID, snakeBody);
+        //playerSnakeCoordsMap.put(playerID, snakeBody);
         return snakeBody;
     }
 
@@ -79,7 +105,7 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
             setFood();
         }
         int needFoodAmount = gameSettings.getFoodStatic() +
-                (int)gameSettings.getFoodPerPlayer() * playerSnakeCoordsMap.size();
+                (int)gameSettings.getFoodPerPlayer() * idSnakeMap.size();
         while(foodList.size() < needFoodAmount){
             Coordinates coordinates = getEmptyCell();
             coordinates.setPointType(PointType.FOOD);
@@ -104,7 +130,27 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
 
     @Override
     public void checkSnakes() {
+        for(ProblemPoint problemPoint : problemPointList){
+            SnakeI snake = idSnakeMap.get(problemPoint.getIdTail());
+            if(snake != null){
+                if(snake.getCoordinatesList().contains(problemPoint.getSnakePoint())){
+                    SnakeI snakeDead = idSnakeMap.get(problemPoint.getIdNewHead());
+                    if(snakeDead != null){
+                        snakeDead.setDead();
+                    }
+                }
+            }
+        }
+        problemPointList.clear();
+    }
 
+    @Override
+    public void addSnake(SnakeI snake) {
+        SnakeI prevSnake = idSnakeMap.put(snake.getPlayerID(), snake);
+        //for debug only
+        if(prevSnake != null){
+            System.out.println("Illegal snake adding to field manager");
+        }
     }
 
     //if we start new game
@@ -200,8 +246,8 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         for(boolean[] row : field){
             Arrays.fill(row, true);
         }
-        for(Map.Entry<Integer, List<Coordinates>> idCoord : playerSnakeCoordsMap.entrySet()){
-            for(Coordinates coord : idCoord.getValue()){
+        for(Map.Entry<Integer, SnakeI> idSnake : idSnakeMap.entrySet()){
+            for(Coordinates coord : idSnake.getValue().getCoordinatesList()){
                 field[coord.getX()][coord.getY()] = false;
             }
         }
@@ -214,14 +260,38 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         if(foodList.contains(cell)){
             return PointType.FOOD;
         }
-        for(List<Coordinates> snakeBodyCoordinatesCollection : playerSnakeCoordsMap.values()){
-            if(snakeBodyCoordinatesCollection.contains(cell)){
-                if(snakeBodyCoordinatesCollection.get(snakeBodyCoordinatesCollection.size() - 1).equals(cell)){
+        for(SnakeI snake : idSnakeMap.values()){
+            List<Coordinates> snakeBodyCoordinatesList = snake.getCoordinatesList();
+            if(snakeBodyCoordinatesList.contains(cell)){
+                if(snakeBodyCoordinatesList.get(snakeBodyCoordinatesList.size() - 1).equals(cell)){
                     return PointType.SNAKE_TAIL;
                 }
                 return PointType.SNAKE_BODY;
             }
         }
         return PointType.EMPTY_CELL;
+    }
+}
+
+class ProblemPoint{
+    private int idTail, idNewHead;
+    private Coordinates snakePoint;
+
+    ProblemPoint(int idNewHead, int idTail, Coordinates snakePoint){
+        this.idNewHead = idNewHead;
+        this.idTail = idTail;
+        this.snakePoint = snakePoint;
+    }
+
+    int getIdNewHead() {
+        return idNewHead;
+    }
+
+    int getIdTail() {
+        return idTail;
+    }
+
+    Coordinates getSnakePoint(){
+        return snakePoint;
     }
 }

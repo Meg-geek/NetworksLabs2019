@@ -79,7 +79,7 @@ public class Snake implements SnakeI {
             System.out.println("Illegal call to fieldHelper");
             return;
         }
-        Coordinates nextCoord = fieldHelper.getNextCell(snakeBodyDeque.getFirst(), curDirection);
+        Coordinates nextCoord = fieldHelper.getNextCell(snakeBodyDeque.getFirst(), curDirection, playerID);
         switch (nextCoord.getPointType()){
             case FOOD:
                 snakeBodyDeque.addFirst(nextCoord);
@@ -89,12 +89,10 @@ public class Snake implements SnakeI {
                 snakeBodyDeque.pollLast();
                 break;
             case SNAKE_BODY:
-                //alive=false;
                 snakeBodyDeque.clear();
                 break;
             case SNAKE_TAIL:
                 if(snakeBodyDeque.contains(nextCoord)){
-                   // alive = false;
                     snakeBodyDeque.clear();
                 } else {
                     snakeBodyDeque.addFirst(nextCoord);

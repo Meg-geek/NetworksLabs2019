@@ -1,6 +1,7 @@
 package model.snakeGame;
 
 import model.game.*;
+import model.networkUtils.NodeRole;
 import model.snakeGameNetwork.messages.GameStateMessage;
 
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ public class SnakeGameField implements GameField {
         //поставили змейку
         SnakeI mySnake = new Snake(fieldManager.getNewSnakeCoords(id),  id, fieldHelper);
         IDSnakeMap.put(id, mySnake);
+        fieldManager.addSnake(mySnake);
         playersList = new ArrayList<>();
         playersList.add(myPlayer);
     }
@@ -49,7 +51,17 @@ public class SnakeGameField implements GameField {
             snakeIEntry.getValue().move();
         }
         fieldManager.checkSnakes();
+        refreshPlayersList();
         gameStateOrder.incrementAndGet();
+    }
+
+    private void refreshPlayersList(){
+        for(SnakeGamePlayerI snakeGamePlayer : playersList){
+            SnakeI snake = IDSnakeMap.get(snakeGamePlayer.getID());
+            if(snake != null && snake.isDead()){
+                snakeGamePlayer.changeRole(NodeRole.VIEWER);
+            }
+        }
     }
 
     @Override
@@ -87,6 +99,7 @@ public class SnakeGameField implements GameField {
         }
         SnakeI playerSnake = new Snake(snakeCoordinatesList, player.getID(), fieldHelper);
         IDSnakeMap.put(playerSnake.getPlayerID(), playerSnake);
+        fieldManager.addSnake(playerSnake);
         playersList.add(player);
         return true;
     }
