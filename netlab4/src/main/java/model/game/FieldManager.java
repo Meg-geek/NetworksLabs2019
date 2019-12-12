@@ -13,6 +13,7 @@ public interface FieldManager {
     boolean isJoinable();
     List<Coordinates> getFoodList();
     void setFoodList(List<Coordinates> foodList);
+    void checkSnakes();
    // void setFood();
    // void moveSnakes();
 }
