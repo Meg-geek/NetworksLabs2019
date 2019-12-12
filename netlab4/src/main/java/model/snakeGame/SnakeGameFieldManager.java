@@ -4,14 +4,15 @@ import model.game.*;
 
 import java.util.*;
 
-public class SnakeGameFieldManager implements FieldManager {
+public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     private GameSettings gameSettings;
-   // private List<SnakeI> snakesList;
     private Map<Integer, List<Coordinates>> playerSnakeCoordsMap = new HashMap<>();
-    private List<Coordinates> foodList;
+    private List<Coordinates> foodList = null;
     private int maxX, maxY;
     private boolean[][] field;
     private static final int NEED_FREE = 5;
+    private static final int NOT_FOUND = -5;
+    private boolean joinable = true;
 
     SnakeGameFieldManager(GameSettings gameSettings){
         this.gameSettings = gameSettings;
@@ -22,13 +23,11 @@ public class SnakeGameFieldManager implements FieldManager {
 
     @Override
     public Coordinates getNextCell(Coordinates cell, Direction direction) {
-        int x = 0, y = 0;
+        int x = FIRST_COORD, y = FIRST_COORD;
         switch (direction){
             case DOWN:
                 if(cell.getY() < maxY) {
                     y = cell.getY() + 1;
-                } else {
-                    y = FIRST_COORD;
                 }
                 x = cell.getX();
                 break;
@@ -51,14 +50,12 @@ public class SnakeGameFieldManager implements FieldManager {
             case RIGHT:
                 if(cell.getY() < maxX) {
                     x = cell.getX() + 1;
-                } else {
-                    x = FIRST_COORD;
                 }
                 y = cell.getY();
                 break;
         }
         Coordinates nextCell = new Point(x, y);
-        setPointType(nextCell);
+        nextCell.setPointType(getPointType(nextCell));
         return nextCell;
     }
 
@@ -69,10 +66,70 @@ public class SnakeGameFieldManager implements FieldManager {
         }
         List<Coordinates> snakeBody = findSnakeCoordinates();
         if(snakeBody == null){
+            joinable = false;
             return null;
         }
+        updateFoodList();
         playerSnakeCoordsMap.put(playerID, snakeBody);
         return snakeBody;
+    }
+
+    private void updateFoodList(){
+        if(foodList == null){
+            setFood();
+        }
+        int needFoodAmount = gameSettings.getFoodStatic() +
+                (int)gameSettings.getFoodPerPlayer() * playerSnakeCoordsMap.size();
+        while(foodList.size() < needFoodAmount){
+            Coordinates coordinates = getEmptyCell();
+            coordinates.setPointType(PointType.FOOD);
+            foodList.add(coordinates);
+        }
+    }
+
+    @Override
+    public boolean isJoinable() {
+        return joinable;
+    }
+
+    @Override
+    public List<Coordinates> getFoodList() {
+        return foodList;
+    }
+
+    @Override
+    public void setFoodList(List<Coordinates> foodList) {
+        this.foodList = foodList;
+    }
+
+    @Override
+    public void checkSnakes() {
+
+    }
+
+    //if we start new game
+
+    private void setFood() {
+        if(foodList == null){
+            foodList = new ArrayList<>();
+            int foodAmount = gameSettings.getFoodStatic() + (int)gameSettings.getFoodPerPlayer();
+            for(int i = 0; i < foodAmount; i++){
+                Coordinates coord = getEmptyCell();
+                coord.setPointType(PointType.FOOD);
+                foodList.add(coord);
+            }
+        }
+    }
+
+    private Coordinates getEmptyCell(){
+        int x = FIRST_COORD + (int) (Math.random() * (maxX - FIRST_COORD));
+        int y = FIRST_COORD + (int) (Math.random() * (maxY - FIRST_COORD));
+        Coordinates coordinates = new Point(x, y);
+        if(getPointType(coordinates) == PointType.EMPTY_CELL){
+            coordinates.setPointType(PointType.EMPTY_CELL);
+            return coordinates;
+        }
+        return getEmptyCell();
     }
 
     private List<Coordinates> findSnakeCoordinates(){
@@ -85,15 +142,15 @@ public class SnakeGameFieldManager implements FieldManager {
                 snakesBody.add(new Point(freeRowsBegin.getX() + 2,
                                         freeRowsBegin.getY() - 2,
                                             PointType.SNAKE_BODY));
-                snakesBody.add(new Point(freeRowsBegin.getX() + 2 + getRand(),
-                        freeRowsBegin.getY() - 2 + getRand(),
+                snakesBody.add(new Point(freeRowsBegin.getX() + 2 + getRandSign(),
+                        freeRowsBegin.getY() - 2 + getRandSign(),
                         PointType.SNAKE_BODY));
             }
         }
         return snakesBody;
     }
 
-    private int getRand(){
+    private int getRandSign(){
         if(new Date().getTime() % 2 == 0) {
             return 1;
         }
@@ -103,25 +160,26 @@ public class SnakeGameFieldManager implements FieldManager {
     private Coordinates findFreeRows(int rowNumb){
         Coordinates coordinates = null;
         int base = field[rowNumb].length;
-        int firstX = -1;
+        int firstX = NOT_FOUND;
         for(int i = 0; i < base + NEED_FREE && coordinates == null; i++){
             int x = getNextInMathRing(i, base);
             if(field[rowNumb][x]){
                 int j;
                 for(j = 1; j <= NEED_FREE; j++){
                     if(!field[getNextInMathRing(rowNumb + j, base)][x]){
+                        j = NOT_FOUND;
                         break;
                     }
                 }
-                if(j != NEED_FREE){
-                    firstX = -1;
+                if(j == NOT_FOUND){
+                    firstX = NOT_FOUND;
                 } else {
-                    if(firstX == -1){
+                    if(firstX == NOT_FOUND){
                         firstX = x;
                     }
                 }
             }
-            if(firstX != -1 && Math.abs(x - firstX) == 4){
+            if(firstX != NOT_FOUND && Math.abs(x - firstX) == NEED_FREE - 1){
                 coordinates = new Point(firstX, rowNumb);
             }
         }
@@ -152,10 +210,18 @@ public class SnakeGameFieldManager implements FieldManager {
         }
     }
 
-    private void setPointType(Coordinates cell){
+    private PointType getPointType(Coordinates cell){
         if(foodList.contains(cell)){
-            cell.setPointType(PointType.FOOD);
+            return PointType.FOOD;
         }
-
+        for(List<Coordinates> snakeBodyCoordinatesCollection : playerSnakeCoordsMap.values()){
+            if(snakeBodyCoordinatesCollection.contains(cell)){
+                if(snakeBodyCoordinatesCollection.get(snakeBodyCoordinatesCollection.size() - 1).equals(cell)){
+                    return PointType.SNAKE_TAIL;
+                }
+                return PointType.SNAKE_BODY;
+            }
+        }
+        return PointType.EMPTY_CELL;
     }
 }

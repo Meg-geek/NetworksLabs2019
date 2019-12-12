@@ -13,6 +13,7 @@ public class SnakeGameField implements GameField {
     private Map<Integer, SnakeI> IDSnakeMap = new ConcurrentHashMap<>();
     private AtomicInteger gameStateOrder;
     private FieldManager fieldManager;
+    private FieldHelper fieldHelper;
     private List<SnakeGamePlayerI> playersList;
     private List<SnakeI> snakesList;
 
@@ -20,17 +21,26 @@ public class SnakeGameField implements GameField {
     SnakeGameField(GameSettings settings, int id, SnakeGamePlayerI myPlayer){
         this(settings);
         //поставили змейку
-        SnakeI mySnake = new Snake(fieldManager.getNewSnakeCoords(id),  id);
+        SnakeI mySnake = new Snake(fieldManager.getNewSnakeCoords(id),  id, fieldHelper);
         IDSnakeMap.put(id, mySnake);
         playersList = new ArrayList<>();
         playersList.add(myPlayer);
     }
 
     SnakeGameField(GameSettings settings){
-        fieldManager = new SnakeGameFieldManager(settings);
+        SnakeGameFieldManager snakeGameFieldManager = new SnakeGameFieldManager(settings);
+        fieldManager = snakeGameFieldManager;
+        fieldHelper = snakeGameFieldManager;
         gameStateOrder = new AtomicInteger();
     }
 
+    SnakeGameField(GameSettings settings, GameState state){
+        this(settings);
+        gameStateOrder.set(state.getStateOrder());
+        this.playersList = state.getPlayersList();
+        fieldManager.setFoodList(state.getFoodList());
+        this.snakesList = state.getSnakesList();
+    }
 
 
     @Override
@@ -38,12 +48,9 @@ public class SnakeGameField implements GameField {
         for(Map.Entry<Integer, SnakeI> snakeIEntry : IDSnakeMap.entrySet()){
             snakeIEntry.getValue().move();
         }
+        fieldManager.checkSnakes();
         gameStateOrder.incrementAndGet();
     }
-
-
-
-
 
     @Override
     public void changeState(GameStateMessage gameStateMessage) {
@@ -78,7 +85,7 @@ public class SnakeGameField implements GameField {
         if(snakeCoordinatesList == null){
             return false;
         }
-        SnakeI playerSnake = new Snake(snakeCoordinatesList, player.getID());
+        SnakeI playerSnake = new Snake(snakeCoordinatesList, player.getID(), fieldHelper);
         IDSnakeMap.put(playerSnake.getPlayerID(), playerSnake);
         playersList.add(player);
         return true;
