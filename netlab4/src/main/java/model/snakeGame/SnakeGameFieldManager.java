@@ -7,13 +7,14 @@ import java.util.*;
 public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     private GameSettings gameSettings;
     private Map<Integer, SnakeI> idSnakeMap = new HashMap<>();
-    private List<Coordinates> foodList = null;
+    private List<Coordinates> foodList = new ArrayList<>();
     private int maxX, maxY;
     private boolean[][] field;
     private static final int NEED_FREE = 5;
     private static final int NOT_FOUND = -5;
     private boolean joinable = true;
     private final int CRASH_POINTS = 1;
+    private final int FOOD_POINTS = 1;
     private final int SNAKE_NOT_FOUND = -4;
     private List<ProblemPoint> problemPointList = new ArrayList<>();
 
@@ -22,6 +23,7 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         maxX = gameSettings.getWidth() + (FIRST_COORD -1);
         maxY = gameSettings.getHeight() + (FIRST_COORD - 1);
         field = new boolean[gameSettings.getWidth()][gameSettings.getHeight()];
+        updateFoodList();
     }
 
     @Override
@@ -36,6 +38,13 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         if(nextCell.getPointType() == PointType.SNAKE_TAIL){
             problemPointList.add(new ProblemPoint(playerId, getSnakeId(nextCell), nextCell));
         }
+        if(nextCell.getPointType() == PointType.FOOD){
+            foodList.remove(nextCell);
+            SnakeI snake = idSnakeMap.get(playerId);
+            if(snake != null){
+                snake.increaseScore(FOOD_POINTS);
+            }
+        }
         return nextCell;
     }
 
@@ -49,34 +58,22 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     }
 
     private Coordinates getNextCell(Coordinates cell, Direction direction){
-        int x = FIRST_COORD, y = FIRST_COORD;
+        int x = cell.getX(), y = cell.getY();
         switch (direction){
             case DOWN:
-                if(cell.getY() < maxY) {
-                    y = cell.getY() + 1;
-                }
+                y = getNextInMathRing(y+1, gameSettings.getHeight());
                 x = cell.getX();
                 break;
             case UP:
-                if(cell.getY() == FIRST_COORD) {
-                    y = gameSettings.getHeight();
-                } else {
-                    y = cell.getY() + 1;
-                }
+                y = getNextInMathRing(y-1, gameSettings.getHeight());
                 x = cell.getX();
                 break;
             case LEFT:
-                if(cell.getX() == FIRST_COORD) {
-                    x = gameSettings.getWidth();
-                } else {
-                    x = cell.getX() + 1;
-                }
+                x = getNextInMathRing(x-1, gameSettings.getWidth());
                 y = cell.getY();
                 break;
             case RIGHT:
-                if(cell.getY() < maxX) {
-                    x = cell.getX() + 1;
-                }
+                x = getNextInMathRing(x+1, gameSettings.getWidth());
                 y = cell.getY();
                 break;
         }
@@ -101,9 +98,6 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     }
 
     private void updateFoodList(){
-        if(foodList == null){
-            setFood();
-        }
         int needFoodAmount = gameSettings.getFoodStatic() +
                 (int)gameSettings.getFoodPerPlayer() * idSnakeMap.size();
         while(foodList.size() < needFoodAmount){
@@ -142,6 +136,7 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
             }
         }
         problemPointList.clear();
+        updateFoodList();
     }
 
     @Override
@@ -153,19 +148,6 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         }
     }
 
-    //if we start new game
-
-    private void setFood() {
-        if(foodList == null){
-            foodList = new ArrayList<>();
-            int foodAmount = gameSettings.getFoodStatic() + (int)gameSettings.getFoodPerPlayer();
-            for(int i = 0; i < foodAmount; i++){
-                Coordinates coord = getEmptyCell();
-                coord.setPointType(PointType.FOOD);
-                foodList.add(coord);
-            }
-        }
-    }
 
     private Coordinates getEmptyCell(){
         int x = FIRST_COORD + (int) (Math.random() * (maxX - FIRST_COORD));
@@ -185,11 +167,11 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
             Coordinates freeRowsBegin = findFreeRows(i);
             if(freeRowsBegin != null){
                 snakesBody = new ArrayList<>();
-                snakesBody.add(new Point(freeRowsBegin.getX() + 2,
-                                        freeRowsBegin.getY() - 2,
+                snakesBody.add(new Point(getNextInMathRing(freeRowsBegin.getX() + 2, field[0].length),
+                                        getNextInMathRing(freeRowsBegin.getY() - 2, field[0].length),
                                             PointType.SNAKE_BODY));
-                snakesBody.add(new Point(freeRowsBegin.getX() + 2 + getRandSign(),
-                        freeRowsBegin.getY() - 2 + getRandSign(),
+                snakesBody.add(new Point(getNextInMathRing(freeRowsBegin.getX() + 2 + getRandSign(), field[0].length),
+                                getNextInMathRing(freeRowsBegin.getY() - 2, field[0].length),
                         PointType.SNAKE_BODY));
             }
         }
@@ -233,6 +215,9 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     }
 
     private int getNextInMathRing(int index, int base){
+        if(index < 0){
+            return getNextInMathRing(index + base, base);
+        }
         if(index < base){
             return index;
         }

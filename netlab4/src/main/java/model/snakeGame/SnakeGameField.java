@@ -16,7 +16,7 @@ public class SnakeGameField implements GameField {
     private FieldManager fieldManager;
     private FieldHelper fieldHelper;
     private List<SnakeGamePlayerI> playersList;
-    private List<SnakeI> snakesList;
+    private List<SnakeI> snakesList;// = new CopyOnWriteArrayList<>();
 
     //если мы создаем игру
     SnakeGameField(GameSettings settings, int id, SnakeGamePlayerI myPlayer){
@@ -24,6 +24,8 @@ public class SnakeGameField implements GameField {
         //поставили змейку
         SnakeI mySnake = new Snake(fieldManager.getNewSnakeCoords(id),  id, fieldHelper);
         IDSnakeMap.put(id, mySnake);
+       // snakesList.add(mySnake);
+       // System.out.println("Snake added to map");
         fieldManager.addSnake(mySnake);
         playersList = new ArrayList<>();
         playersList.add(myPlayer);
@@ -58,8 +60,12 @@ public class SnakeGameField implements GameField {
     private void refreshPlayersList(){
         for(SnakeGamePlayerI snakeGamePlayer : playersList){
             SnakeI snake = IDSnakeMap.get(snakeGamePlayer.getID());
-            if(snake != null && snake.isDead()){
-                snakeGamePlayer.changeRole(NodeRole.VIEWER);
+            if(snake != null){
+                if(snake.isDead()){
+                    snakeGamePlayer.changeRole(NodeRole.VIEWER);
+                } else {
+                    snakeGamePlayer.increaseScore(snake.getScore() - snakeGamePlayer.getScore());
+                }
             }
         }
     }
