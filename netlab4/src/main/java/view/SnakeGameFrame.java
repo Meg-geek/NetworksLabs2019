@@ -5,11 +5,14 @@ import model.networkUtils.GameNetworkSettings;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 
 class SnakeGameFrame extends JFrame {
     private static final float SIZE_COEF = 1.5F;
     static final int FRAME_WIDTH;
     static final int FRAME_HEIGHT;
+    static final int INDENT_HEIGHT;
+    static final int INDENT_WIDTH;
     private static final String TITLE = "SnakeGame";
     static final Color BACKGROUND_COLOR = new Color(153, 255, 153);
     private SwingView swingView;
@@ -21,6 +24,8 @@ class SnakeGameFrame extends JFrame {
         Dimension screenDim = Toolkit.getDefaultToolkit().getScreenSize();
         FRAME_WIDTH = (int)(screenDim.width/SIZE_COEF);
         FRAME_HEIGHT = (int)(screenDim.height/SIZE_COEF);
+        INDENT_HEIGHT = SnakeGameFrame.FRAME_HEIGHT/65;
+        INDENT_WIDTH = SnakeGameFrame.FRAME_WIDTH/50;
     }
 
     SnakeGameFrame(SwingView swingView){
@@ -43,19 +48,48 @@ class SnakeGameFrame extends JFrame {
         setVisible(true);
     }
 
+    void goToMenu(){
+        setContentPane(menuPanel);
+        setVisible(true);
+        swingView.quitGame();
+    }
+
     void startNewGame(){
-        gameSettingsPanel = new GameSettingsPanel();
+        gameSettingsPanel = new GameSettingsPanel(this);
         setContentPane(gameSettingsPanel);
         setVisible(true);
     }
 
     void startNewGame(GameSettings gameSettings, GameNetworkSettings networkSettings){
-        gamePanel = new GamePanel();
+        swingView.startNewGame(gameSettings, networkSettings);
+        gamePanel = new GamePanel(this, gameSettings.getWidth(), gameSettings.getHeight());
+        setContentPane(gamePanel);
+        setVisible(true);
+    }
+
+    void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings){
+        gamePanel = new GamePanel(this, gameSettings.getWidth(), gameSettings.getHeight());
         setContentPane(gamePanel);
         setVisible(true);
     }
 
     void quit(){
         swingView.quit();
+    }
+
+    void updateGame(int gameStateOrder,
+                    java.util.List<Point> snakeCoordinatesList,
+                    java.util.List<Point> foodList,
+                    List<ViewPlayerInfo> players){
+        ((GamePanel)gamePanel).updateGamePanel(gameStateOrder, snakeCoordinatesList, foodList, players);
+    }
+
+    void joinGame(String gameInfo){
+        String ip = gameInfo.substring(0, gameInfo.indexOf(" "));
+        swingView.joinGame(ip);
+    }
+
+    void updateGamesList(java.util.List<ViewGameInfo> gameInfoList){
+        ((MenuPanel)menuPanel).updateGamesList(gameInfoList);
     }
 }

@@ -128,13 +128,12 @@ class GamePanel extends JPanel {
         for(Point foodPoint : foodPointsList){
             Rectangle2D apple = new Rectangle2D.Double(foodPoint.getX()*CELL_SIDE + POINT_PAINT_X_COEF,
                     foodPoint.getY()*CELL_SIDE + POINT_PAINT_Y_COEF,
-                    CELL_SIDE,
-                    CELL_SIDE
+                    CELL_SIDE - 1,
+                    CELL_SIDE - 1
             );
             graphics2D.draw(apple);
             graphics2D.fill(apple);
         }
-        System.out.println("painted");
     }
 
     void updateGamePanel(int gameStateOrder,

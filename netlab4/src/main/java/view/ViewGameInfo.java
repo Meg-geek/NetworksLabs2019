@@ -5,7 +5,7 @@ public class ViewGameInfo {
     private int playersAmount;
     private int fieldWidth, fieldHeigth;
 
-    ViewGameInfo(String masterIp, int playersAmount, int fieldWidth, int fieldHeigth){
+    public ViewGameInfo(String masterIp, int playersAmount, int fieldWidth, int fieldHeigth){
         this.masterIp = masterIp;
         this.playersAmount = playersAmount;
         this.fieldWidth = fieldWidth;
@@ -26,5 +26,11 @@ public class ViewGameInfo {
 
     String getMasterIp() {
         return masterIp;
+    }
+
+    @Override
+    public String toString() {
+        return masterIp + " " +
+                playersAmount + " " + fieldWidth + " X " + fieldHeigth;
     }
 }
