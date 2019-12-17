@@ -32,6 +32,9 @@ public class Snake implements SnakeI {
     }
 
     private Direction getDirection(List<Coordinates> snakeBody){
+        if(snakeBody.size() < 2){
+            return Direction.DOWN;
+        }
         int x = snakeBody.get(0).getX() - snakeBody.get(1).getX();
         int y = snakeBody.get(0).getY() - snakeBody.get(1).getY();
         if(x == 0){
@@ -48,24 +51,25 @@ public class Snake implements SnakeI {
 
     @Override
     public void setDirection(Direction direction) {
+        Direction realDirection = getDirection(new ArrayList<>(snakeBodyDeque));
         switch(direction){
             case DOWN:
-                if(curDirection != Direction.UP) {
+                if(realDirection != Direction.UP) {
                     curDirection = direction;
                 }
                 break;
             case UP:
-                if(curDirection != Direction.DOWN) {
+                if(realDirection != Direction.DOWN) {
                     curDirection = direction;
                 }
                 break;
             case LEFT:
-                if(curDirection != Direction.RIGHT) {
+                if(realDirection != Direction.RIGHT) {
                     curDirection = direction;
                 }
                 break;
             case RIGHT:
-                if(curDirection != Direction.LEFT) {
+                if(realDirection != Direction.LEFT) {
                     curDirection = direction;
                 }
                 break;
