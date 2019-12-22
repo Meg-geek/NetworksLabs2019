@@ -18,5 +18,4 @@ public interface Controller {
     void updateGamesList(List<NetworkGame> gamesList);
     void joinGame(String ip);
     void showError(String errorMessage);
-    void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings);
 }

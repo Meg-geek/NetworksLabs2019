@@ -62,11 +62,6 @@ public class SwingView implements View {
 
     }
 
-    @Override
-    public void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings) {
-        ((SnakeGameFrame)gameFrame).joinGame(gameSettings, networkSettings);
-    }
-
     void quitGame(){
         gameController.quitGame();
     }

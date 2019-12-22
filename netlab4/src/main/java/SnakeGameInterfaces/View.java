@@ -1,7 +1,5 @@
 package SnakeGameInterfaces;
 
-import model.game.GameSettings;
-import model.networkUtils.GameNetworkSettings;
 import view.ViewGameInfo;
 import view.ViewPlayerInfo;
 
@@ -16,5 +14,4 @@ public interface View {
     void updateGamesList(List<ViewGameInfo> gamesList);
     void joinGame(String masterIp);
     void showError(String errorText);
-    void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings);
 }

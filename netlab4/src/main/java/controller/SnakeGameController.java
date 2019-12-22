@@ -11,7 +11,6 @@ import view.SwingView;
 import view.ViewGameInfo;
 import view.ViewPlayerInfo;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
@@ -24,7 +23,8 @@ public class SnakeGameController implements Controller {
     private App snakeGameApp;
 
     public SnakeGameController(){
-        SwingUtilities.invokeLater(()-> this.gameView = new SwingView(this));
+        //SwingUtilities.invokeLater(()-> this.gameView = new SwingView(this));
+        this.gameView = new SwingView(this);
     }
 
     @Override
@@ -114,10 +114,5 @@ public class SnakeGameController implements Controller {
     @Override
     public void showError(String errorMessage) {
         gameView.showError(errorMessage);
-    }
-
-    @Override
-    public void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings) {
-        gameView.joinGame(gameSettings, networkSettings);
     }
 }

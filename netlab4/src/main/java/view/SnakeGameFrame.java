@@ -61,17 +61,19 @@ class SnakeGameFrame extends JFrame {
     }
 
     void startNewGame(GameSettings gameSettings, GameNetworkSettings networkSettings){
+        gamePanel = new GamePanel(this, gameSettings.getWidth(), gameSettings.getHeight());
+        setContentPane(gamePanel);
+        setVisible(true);
         swingView.startNewGame(gameSettings, networkSettings);
+    }
+/*
+    void joinGame(GameSettings gameSettings){
         gamePanel = new GamePanel(this, gameSettings.getWidth(), gameSettings.getHeight());
         setContentPane(gamePanel);
         setVisible(true);
     }
 
-    void joinGame(GameSettings gameSettings, GameNetworkSettings networkSettings){
-        gamePanel = new GamePanel(this, gameSettings.getWidth(), gameSettings.getHeight());
-        setContentPane(gamePanel);
-        setVisible(true);
-    }
+ */
 
     void quit(){
         swingView.quit();
@@ -86,6 +88,12 @@ class SnakeGameFrame extends JFrame {
 
     void joinGame(String gameInfo){
         String ip = gameInfo.substring(0, gameInfo.indexOf(" "));
+        String[] splitedInfo = gameInfo.split(" ");
+        int width = Integer.parseInt(splitedInfo[2]);
+        int height = Integer.parseInt(splitedInfo[4]);
+        gamePanel = new GamePanel(this, width, height);
+        setContentPane(gamePanel);
+        setVisible(true);
         swingView.joinGame(ip);
     }
 
