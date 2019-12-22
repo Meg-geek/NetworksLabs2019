@@ -23,7 +23,6 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
         maxX = gameSettings.getWidth() + (FIRST_COORD -1);
         maxY = gameSettings.getHeight() + (FIRST_COORD - 1);
         field = new boolean[gameSettings.getWidth()][gameSettings.getHeight()];
-        updateFoodList();
     }
 
     @Override
@@ -100,7 +99,8 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
     private void updateFoodList(){
         int needFoodAmount = gameSettings.getFoodStatic() +
                 (int)gameSettings.getFoodPerPlayer() * idSnakeMap.size();
-        while(foodList.size() < needFoodAmount){
+        while(foodList.size() < needFoodAmount &&
+                foodList.size() < gameSettings.getHeight()*gameSettings.getWidth() - NEED_FREE*NEED_FREE){
             Coordinates coordinates = getEmptyCell();
             coordinates.setPointType(PointType.FOOD);
             foodList.add(coordinates);
@@ -170,19 +170,28 @@ public class SnakeGameFieldManager implements FieldManager, FieldHelper {
                 snakesBody.add(new Point(getNextInMathRing(freeRowsBegin.getX() + 2, field[0].length),
                                         getNextInMathRing(freeRowsBegin.getY() - 2, field[0].length),
                                             PointType.SNAKE_BODY));
-                snakesBody.add(new Point(getNextInMathRing(freeRowsBegin.getX() + 2 + getRandSign(), field[0].length),
-                                getNextInMathRing(freeRowsBegin.getY() - 2, field[0].length),
+                int[] coefArray = getRandDirection();
+                snakesBody.add(new Point(getNextInMathRing(freeRowsBegin.getX() + 2 + coefArray[0], field[0].length),
+                                getNextInMathRing(freeRowsBegin.getY() - 2 + coefArray[1], field[0].length),
                         PointType.SNAKE_BODY));
             }
         }
         return snakesBody;
     }
 
-    private int getRandSign(){
-        if(new Date().getTime() % 2 == 0) {
-            return 1;
+    private int[] getRandDirection(){
+        int[] coefArray = new int[2];
+        int randInt = new Random().nextInt();
+        if(randInt % 4 == 0) {
+            coefArray[0] = 1;
+        } else if (randInt % 3 == 0){
+            coefArray[0] = -1;
+        } else if(randInt % 2 == 0){
+            coefArray[1] = 1;
+        } else {
+            coefArray[1] = -1;
         }
-        return -1;
+        return coefArray;
     }
 
     private Coordinates findFreeRows(int rowNumb){
