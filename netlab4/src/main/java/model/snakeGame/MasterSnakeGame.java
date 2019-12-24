@@ -16,14 +16,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class MasterSnakeGame implements Game, NetworkGame {
+public class MasterSnakeGame implements NetworkGame {
     private static final int THREADS_AMOUNT = 4;
-    private static final int INIT_DELAY = 0;
-    private static final int FIRST_ID = 0;
+    private static final int INIT_DELAY_MS = 0;
+    private static final int FIRST_ID = 1;
     private final int ACK_DELAY = 100;
     private ScheduledThreadPoolExecutor scheduledThreadPool = new ScheduledThreadPoolExecutor(THREADS_AMOUNT);
-    private GameSettings gameSettings;
-    private GameNetworkSettings gameNetworkSettings;
+    private Settings gameSettings;
     private GameField gameField;
     private MasterNode master;
     private NetworkApp app;
@@ -33,55 +32,68 @@ public class MasterSnakeGame implements Game, NetworkGame {
     private ACKManager ackManager;
 
     //when we create game as master
-    MasterSnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings){
-        this.gameSettings = gameSettings;
+    MasterSnakeGame(NetworkApp app, Settings settings){
+        this.gameSettings = settings;
         this.app = app;
         nextId = new AtomicInteger(FIRST_ID);
-        this.gameNetworkSettings = gameNetworkSettings;
-        master = new MasterPlayer(app.getMe(), nextId.getAndIncrement());
+        master = new MasterPlayer(app.getMe(), nextId.incrementAndGet());
         gameField = new SnakeGameField(gameSettings, master.getID(), master);
-        ackManager = new SnakeGameACKManager(this, gameNetworkSettings.getNodeTimeoutMs());
+        ackManager = new SnakeGameACKManager(this, settings.getNodeTimeoutMs());
         start();
     }
 
     //when we become master after normal
-    MasterSnakeGame(NetworkApp app, GameSettings gameSettings, GameNetworkSettings gameNetworkSettings,
+    MasterSnakeGame(NetworkApp app, Settings gameSettings,
                     GameState gameState, MasterNode masterNode, long msgSeq){
         this.app = app;
         this.gameSettings = gameSettings;
-        this.gameNetworkSettings = gameNetworkSettings;
         this.master = masterNode;
+        master.changeRole(NodeRole.MASTER);
         this.gameField = new SnakeGameField(gameSettings);
+        this.msgSeq = new AtomicLong(msgSeq);
+        nextId = new AtomicInteger(gameState.getMaxID() + 1);
+        ackManager = new SnakeGameACKManager(this, gameSettings.getNodeTimeoutMs());
+        for(SnakeGamePlayerI snakeGamePlayerI : gameState.getPlayersList()){
+            if(snakeGamePlayerI.getID() != master.getID()){
+                idUserMap.put(snakeGamePlayerI.getID(), snakeGamePlayerI);
+            } else {
+                master.getMaster().setIp(snakeGamePlayerI.getIP());
+                snakeGamePlayerI.changeRole(NodeRole.MASTER);
+            }
+        }
+        gameField = new SnakeGameField(gameSettings, gameState);
+        start();
     }
 
-   // become a master
     private void start() {
+        //moves snakes
        scheduledThreadPool.scheduleWithFixedDelay(()->{
                     gameField.moveSnakes();
-                    sendMessage(getGameStateMessage());
+                    GameStateMessage gameStateMessage = getGameStateMessage();
+                    sendMessage(gameStateMessage);
+                    app.stateChanged(gameStateMessage);
                },
-               INIT_DELAY,
+               INIT_DELAY_MS,
                gameSettings.getStateDelayMS(),
                TimeUnit.MILLISECONDS);
-       scheduledThreadPool.scheduleWithFixedDelay(() -> app.sendMulticastMessage(getAnnouncment()),
-                    INIT_DELAY, GameNetworkSettings.MULTICAST_INTERVAL_S, TimeUnit.SECONDS);
+       scheduledThreadPool.scheduleWithFixedDelay(() -> app.sendMulticastMessage(getAnnouncment()), GameNetworkSettings.MULTICAST_INTERVAL_S, GameNetworkSettings.MULTICAST_INTERVAL_S, TimeUnit.SECONDS);
         scheduledThreadPool.scheduleWithFixedDelay(()->{
                     long nowTime = new Date().getTime();
                     for(NetworkUser user : idUserMap.values()){
-                        if(nowTime - user.getLastActivity().getTime() > gameNetworkSettings.getPingDelayMs()){
+                        if(nowTime - user.getLastActivity().getTime() > gameSettings.getPingDelayMs()){
                             sendMessage(new PingMessage(msgSeq.getAndIncrement(), master.getID(), user.getID()),
                                     user);
                         }
                     }
                 },
-                INIT_DELAY,
-                gameNetworkSettings.getPingDelayMs(),
+                INIT_DELAY_MS,
+                gameSettings.getPingDelayMs(),
                 TimeUnit.MILLISECONDS);
         scheduledThreadPool.scheduleWithFixedDelay(()->{
                     long nowTime = new Date().getTime();
                     List<Integer> usersIdRemoveList = new ArrayList<>();
                     for(NetworkUser user : idUserMap.values()){
-                        if(nowTime - user.getLastActivity().getTime() > gameNetworkSettings.getNodeTimeoutMs()){
+                        if(nowTime - user.getLastActivity().getTime() > gameSettings.getNodeTimeoutMs()){
                             usersIdRemoveList.add(user.getID());
                         }
                     }
@@ -89,13 +101,15 @@ public class MasterSnakeGame implements Game, NetworkGame {
                         removePlayer(id);
                     }
                 },
-                gameNetworkSettings.getNodeTimeoutMs(),
-                gameNetworkSettings.getNodeTimeoutMs(),
+                gameSettings.getNodeTimeoutMs(),
+                gameSettings.getNodeTimeoutMs() + gameSettings.getPingDelayMs(),
                 TimeUnit.MILLISECONDS);
-        scheduledThreadPool.scheduleWithFixedDelay(ackManager, INIT_DELAY, ACK_DELAY, TimeUnit.MILLISECONDS);
+
+        scheduledThreadPool.scheduleWithFixedDelay(ackManager, INIT_DELAY_MS, ACK_DELAY, TimeUnit.MILLISECONDS);
     }
 
-    private Message getGameStateMessage(){
+
+    private GameStateMessage getGameStateMessage(){
         GameState gameState = gameField.getState();
         return new GameStateMessage(msgSeq.getAndIncrement(),
                 master.getID(),
@@ -103,7 +117,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
                 gameState.getSnakesList(),
                 gameState.getFoodList(),
                 gameState.getPlayersList(),
-                gameSettings, gameNetworkSettings);
+                gameSettings);
     }
 
     private void removePlayer(int playerID){
@@ -114,7 +128,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
     }
 
     private void addPlayer(JoinMessage message){
-        SnakeGamePlayerI player = new SnakeGamePlayer(nextId.getAndIncrement(),
+        SnakeGamePlayerI player = new SnakeGamePlayer(nextId.incrementAndGet(),
                 message.getPlayerName(),
                 SnakeGamePlayerI.BEGIN_SCORE,
                 message.getIp(),
@@ -125,8 +139,9 @@ public class MasterSnakeGame implements Game, NetworkGame {
             if(master.getDeputy() == null){
                 makeDeputy(player);
             }
-            sendMessage(new ACKMessage(msgSeq.getAndIncrement(),
-                    master.getID(), player.getID()), player);
+            ACKMessage ackMessage = new ACKMessage(msgSeq.getAndIncrement(),
+                    master.getID(), player.getID());
+            sendMessage(ackMessage, player);
         } else {
             sendMessage(new ErrorMessage(msgSeq.getAndIncrement(), "The game doesn't have enough space"),
                     player);
@@ -141,8 +156,10 @@ public class MasterSnakeGame implements Game, NetworkGame {
 
     private void sendMessage(Message message){
         List<NetworkUser> usersList = new ArrayList<>(idUserMap.values());
-        app.sendMessage(message, usersList);
-        ackManager.addMessage(message, usersList);
+        if(usersList.size() > 0){
+            app.sendMessage(message, usersList);
+            ackManager.addMessage(message, usersList);
+        }
     }
 
     private void makeDeputy(SnakeGamePlayerI playerI){
@@ -177,6 +194,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
                 break;
             case STEER:
                 if(message instanceof SteerMessage){
+                    //System.out.println("Steer msg senderId" + message.getSenderID() + " master id " + master.getID());
                     gameField.setSnakeDirection(message.getSenderID(), ((SteerMessage) message).getDirection());
                 }
                 break;
@@ -187,6 +205,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
                 break;
             case PING:
                 refreshActivity(message.getSenderID());
+                break;
             default:
                 System.out.println("wrong type of message got to master node "  + message.getType() + " " + message);
                 break;
@@ -203,12 +222,17 @@ public class MasterSnakeGame implements Game, NetworkGame {
             app.sendMessage(message, new ArrayList<>(){{add(master.getDeputy());}});
         }
         scheduledThreadPool.shutdown();
-        scheduledThreadPool.shutdownNow();
+        //scheduledThreadPool.shutdownNow();
+    }
+
+    @Override
+    public int getPlayersAmount() {
+        return idUserMap.size();
     }
 
     @Override
     public GameNetworkSettings getNetworkSettings() {
-        return gameNetworkSettings;
+        return gameSettings;
     }
 
     @Override
@@ -221,7 +245,7 @@ public class MasterSnakeGame implements Game, NetworkGame {
         if(!game.getMaster().equals(this.master)){
             return false;
         }
-        if(!game.getNetworkSettings().equals(this.gameNetworkSettings)){
+        if(!game.getNetworkSettings().equals(this.gameSettings)){
             return false;
         }
         return game.getGameSettings().equals(this.gameSettings);
@@ -239,9 +263,9 @@ public class MasterSnakeGame implements Game, NetworkGame {
 
 
     private Message getAnnouncment() {
-        GameStateMessage gameState = (GameStateMessage) gameField.getState();
-        return new AnnouncmentMessage(msgSeq.getAndIncrement(), gameSettings, gameNetworkSettings,
-                gameState.getSnakeGamePlayersList(), gameField.isJoinable());
+        GameState gameState = gameField.getState();
+        return new AnnouncementMessage(msgSeq.getAndIncrement(), master.getID(), gameSettings,
+                gameState.getPlayersList(), gameField.isJoinable());
     }
 
     @Override
