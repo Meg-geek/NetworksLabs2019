@@ -1,5 +1,7 @@
 package model.networkUtils;
 
+import model.snakeGameNetwork.messages.GameStateMessage;
+
 import java.net.DatagramPacket;
 import java.util.List;
 
@@ -14,4 +16,5 @@ public interface NetworkApp {
    // void joinGame();
     void sendMulticastMessage(Message message);
     void startAsMaster(NetworkGame prevGame, NetworkGame curGame);
+    void stateChanged(GameStateMessage gameStateMessage);
 }

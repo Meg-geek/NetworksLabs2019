@@ -7,4 +7,5 @@ public interface GameState {
     List<SnakeI> getSnakesList();
     List<SnakeGamePlayerI> getPlayersList();
     List<Coordinates> getFoodList();
+    int getMaxID();
 }

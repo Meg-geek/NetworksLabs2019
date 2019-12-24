@@ -8,5 +8,5 @@ public enum MessageType {
     ACK,
     STATE,
     ROLE_CHANGE,
-    ANNOUNCMENT
+    ANNOUNCEMENT
 }
