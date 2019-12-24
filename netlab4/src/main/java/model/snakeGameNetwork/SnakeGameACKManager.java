@@ -65,8 +65,10 @@ public class SnakeGameACKManager implements ACKManager{
 
     @Override
     public void addMessage(Message message, List<NetworkUser> usersList) {
-        numberMessageMap.put(message.getNumber(), message);
-        messageUsersListMap.put(message, usersList);
+        if(usersList.size() > 0){
+            numberMessageMap.put(message.getNumber(), message);
+            messageUsersListMap.put(message, usersList);
+        }
     }
 
 }

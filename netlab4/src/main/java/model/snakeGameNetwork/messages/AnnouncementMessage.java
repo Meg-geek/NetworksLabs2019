@@ -13,9 +13,9 @@ public class AnnouncementMessage extends Message {
     private Settings gameSettings;
     private List<SnakeGamePlayerI> playersList;
 
-    public AnnouncementMessage(long msgSeq, Settings settings,
+    public AnnouncementMessage(long msgSeq, int senderId, Settings settings,
                                List<SnakeGamePlayerI> playersList, boolean canJoin){
-        super(new BasicMessageInfo(msgSeq));
+        super(new BasicMessageInfo(msgSeq, senderId));
         this.joinable = canJoin;
         this.gameSettings = settings;
         this.playersList = playersList;

@@ -19,8 +19,14 @@ public class Sender{
     public void send(SnakesProto.GameMessage message, List<NetworkUser> usersList){
         for(NetworkUser user : usersList) {
             try {
-                socket.send(new DatagramPacket(message.toByteArray(), message.toByteArray().length,
-                        InetAddress.getByName(user.getIP()), user.getPort()));
+                SnakesProto.GameMessage messageWithRecvId = SnakesProto.GameMessage
+                        .newBuilder(message)
+                        .setReceiverId(user.getID())
+                        .build();
+                if(!(user.getIP().equals(""))){
+                    socket.send(new DatagramPacket(messageWithRecvId.toByteArray(), messageWithRecvId.toByteArray().length,
+                            InetAddress.getByName(user.getIP()), user.getPort()));
+                }
             } catch(IOException ex){
                 throw new RuntimeException(ex);
             }

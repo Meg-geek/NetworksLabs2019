@@ -8,6 +8,9 @@ import model.utils.ConvertionExeption;
 public class NodeRoleConverter implements Converter<NodeRole, SnakesProto.NodeRole> {
     @Override
     public SnakesProto.NodeRole convert(NodeRole role) throws ConvertionExeption {
+        if(role == null){
+            return null;
+        }
         switch(role){
             case VIEWER:
                 return SnakesProto.NodeRole.VIEWER;
@@ -23,6 +26,9 @@ public class NodeRoleConverter implements Converter<NodeRole, SnakesProto.NodeRo
 
     @Override
     public NodeRole inverseConvert(SnakesProto.NodeRole protoRole) throws ConvertionExeption {
+        if(protoRole == null){
+            return null;
+        }
         switch (protoRole){
             case DEPUTY:
                 return NodeRole.DEPUTY;

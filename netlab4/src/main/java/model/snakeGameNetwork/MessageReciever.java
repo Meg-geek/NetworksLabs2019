@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
-public class MessageReciever implements Runnable {
+public class MessageReciever extends Thread {
     private boolean running = true;
     private DatagramSocket socket;
     private NetworkApp networkApp;
@@ -20,7 +20,7 @@ public class MessageReciever implements Runnable {
 
     @Override
     public void run() {
-        while(running){
+        while(!interrupted()){
             try{
                 DatagramPacket packet = new DatagramPacket(new byte[MAX_PACKET_LENGTH], MAX_PACKET_LENGTH);
                 socket.receive(packet);
@@ -29,5 +29,6 @@ public class MessageReciever implements Runnable {
                 throw new RuntimeException(ex);
             }
         }
+        socket.close();
     }
 }

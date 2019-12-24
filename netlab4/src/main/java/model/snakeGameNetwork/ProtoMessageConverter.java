@@ -14,7 +14,7 @@ import model.utils.ConvertionExeption;
 import java.util.List;
 
 public class ProtoMessageConverter implements MessageConverter {
-    public static final int MAX_MSG_SIZE;
+    static final int MAX_MSG_SIZE;
 
     private Converter<List<SnakeI>, List<SnakesProto.GameState.Snake>> snakesListConverter
             = new SnakesConverter();
@@ -60,7 +60,7 @@ public class ProtoMessageConverter implements MessageConverter {
             case STATE:
                 return new GameStateMessage(message.getMsgSeq(),
                         message.getSenderId(),
-                        message.getReceiverId(),
+                        message.getState().getState().getStateOrder(),
                         snakesListConverter.inverseConvert(message.getState().getState().getSnakesList()),
                         coordinatesListConverter.inverseConvert(message.getState().getState().getFoodsList()),
                         playersListConverter.inverseConvert(message.getState().getState().getPlayers()),
@@ -79,13 +79,11 @@ public class ProtoMessageConverter implements MessageConverter {
                         nodeRoleConverter.inverseConvert(message.getRoleChange().getReceiverRole())
                         );
             case ANNOUNCEMENT:
-                return new AnnouncementMessage(message.getMsgSeq(),
+                return new AnnouncementMessage(message.getMsgSeq(), message.getSenderId(),
                         gameConfigConverter.inverseConvert(message.getAnnouncement().getConfig()),
                         playersListConverter.inverseConvert(message.getAnnouncement().getPlayers()),
                         message.getAnnouncement().getCanJoin());
             case TYPE_NOT_SET:
-                //or log?
-                System.out.println("Message type does not set");
                 return null;
         }
         return null;
@@ -116,7 +114,9 @@ public class ProtoMessageConverter implements MessageConverter {
                 break;
             case ACK:
                 if(message instanceof ACKMessage){
-                    getGameMessageBuilder(message).build();
+                    return getGameMessageBuilder(message)
+                            .setAck(SnakesProto.GameMessage.AckMsg.getDefaultInstance())
+                            .build();
                 }
                 break;
             case JOIN:
@@ -156,20 +156,30 @@ public class ProtoMessageConverter implements MessageConverter {
             case ROLE_CHANGE:
                 if(message instanceof RoleChangeMessage){
                     RoleChangeMessage roleChangeMessage = (RoleChangeMessage)message;
+                    SnakesProto.GameMessage.RoleChangeMsg.Builder roleChangeMessageBuilder = SnakesProto.GameMessage.RoleChangeMsg
+                            .newBuilder();
+                    SnakesProto.NodeRole nodeRole = nodeRoleConverter
+                            .convert(roleChangeMessage.getSenderRole());
+                    if(nodeRole != null){
+                        roleChangeMessageBuilder.setSenderRole(nodeRole);
+                        nodeRole = nodeRoleConverter
+                                .convert(roleChangeMessage.getRecieverRole());
+                    }
+                    if(nodeRole != null){
+                        roleChangeMessageBuilder.setReceiverRole(nodeRole);
+                    }
                     return getGameMessageBuilder(message)
-                            .setRoleChange(SnakesProto.GameMessage.RoleChangeMsg
-                                    .newBuilder()
-                                    .setSenderRole(nodeRoleConverter
-                                            .convert(roleChangeMessage.getSenderRole()))
-                                    .setReceiverRole(nodeRoleConverter
-                                            .convert(roleChangeMessage.getRecieverRole()))
+                            .setRoleChange(
+                                    roleChangeMessageBuilder
                                     .build())
                             .build();
                 }
                 break;
             case PING:
                 if(message instanceof PingMessage){
-                    return getGameMessageBuilder(message).build();
+                    return getGameMessageBuilder(message)
+                            .setPing(SnakesProto.GameMessage.PingMsg.getDefaultInstance())
+                            .build();
                 }
                 break;
             case ANNOUNCEMENT:
