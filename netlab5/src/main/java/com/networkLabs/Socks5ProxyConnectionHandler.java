@@ -33,7 +33,7 @@ public class Socks5ProxyConnectionHandler implements Socks5Constants, ISocks5Con
     }
 
     @Override
-    public void readClientData() throws SocksException, IOException {
+                public void readClientData() throws SocksException, IOException {
         ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
         int bytesRead = clientSocketChannel.read(byteBuffer);
         byteBuffer.flip();
@@ -53,6 +53,24 @@ public class Socks5ProxyConnectionHandler implements Socks5Constants, ISocks5Con
                 }
                 break;
         }
+    }
+
+    @Override
+    public void readDestData() throws IOException{
+        ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+        if(destinationSocketChanel.isConnected()){
+            int bytesRead = destinationSocketChanel.read(byteBuffer);
+            byteBuffer.flip();
+            if(bytesRead > 0){
+                clientSocketChannel.write(ByteBuffer.wrap(byteBuffer.array(), 0, bytesRead));
+            }
+        }
+    }
+
+    @Override
+    public void connectToAddres(InetAddress address) throws IOException, SocksException{
+        this.destinationInetAddress = address;
+        this.connectToDestination();
     }
 
     private void handleClientConnectionReq(ByteBuffer clientConnectionReqBuf)
