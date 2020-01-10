@@ -10,6 +10,7 @@ public class Socks5MessageParser implements Socks5Constants{
     = 8 bytes
      */
     private static final int ADDRESS_TYPE_INDEX = 3;
+    private static final int IPV4_START_INDEX = ADDRESS_TYPE_INDEX + 1;
     private static final int DESTINATION_IPV4_ADDRESS_LENGTH = 4;
     private static final int PORT_INDEX_IPV4 = 8;
     private static final int DOMAIN_NAME_LENGTH_INDEX = ADDRESS_TYPE_INDEX + 1;
@@ -17,15 +18,14 @@ public class Socks5MessageParser implements Socks5Constants{
 
     //null if DNS
     InetAddress getAddress(ByteBuffer messageBuffer) throws UnknownHostException {
-        int addresType = messageBuffer.get(ADDRESS_TYPE_INDEX);
+        byte[] msgArray = messageBuffer.array();
+        int addresType = msgArray[ADDRESS_TYPE_INDEX];
         if(addresType == DOMAIN_NAME_ADDRESS){
             return null;
         }
         byte[] address = new byte[DESTINATION_IPV4_ADDRESS_LENGTH];
-        for(int i = 1; i < DESTINATION_IPV4_ADDRESS_LENGTH + 1; i++){
-            address[i] = messageBuffer.get(ADDRESS_TYPE_INDEX + i);
-        }
-        return InetAddress.getByName(new String(address));
+        System.arraycopy(msgArray, 4, address, 0, DESTINATION_IPV4_ADDRESS_LENGTH);
+        return InetAddress.getByAddress(address);
     }
 
     int getPort(ByteBuffer messageBuffer){

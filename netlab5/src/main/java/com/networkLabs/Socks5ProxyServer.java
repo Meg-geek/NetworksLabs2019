@@ -1,18 +1,18 @@
 package com.networkLabs;
 
-import com.networkLabs.api.ISocks5ConnectionHandler;
-import com.networkLabs.api.ISocks5ProxyServer;
 import org.xbill.DNS.*;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class Socks5ProxyServer implements Runnable, ISocks5ProxyServer, Socks5Constants {
+public class Socks5ProxyServer implements Runnable, Socks5Constants {
     private final static int STANDART_SOCKS5_PORT = 1080;
     private int port;
     private final String host = "127.0.0.1";
@@ -24,55 +24,55 @@ public class Socks5ProxyServer implements Runnable, ISocks5ProxyServer, Socks5Co
 
     private static final int DNS_PORT = 53;
 
-    private Map<SocketChannel, ISocks5ConnectionHandler> channelConnectionHandlerMap = new HashMap<>();
-    private Map<SocketChannel, ISocks5ConnectionHandler> channelConnectionWithDestMap = new HashMap<>();
+    private Map<SocketChannel, SocketChannel> connectionsMap = new HashMap<>();
+    private Map<SocketChannel, ConnectionState> socketChannelStateMap = new HashMap<>();
 
-    private Map<Integer, ISocks5ConnectionHandler> dnsMessageIdHandlerMap = new HashMap<>();
+    private Map<Integer, ConnectionReqInfo> dnsMessageIdConnectionReqMap = new HashMap<>();
 
-    Socks5ProxyServer() throws IOException{
+    private Socks5MessagesChecker messagesChecker = new Socks5MessagesChecker();
+    private Socks5MessageCreator messageCreator = new Socks5MessageCreator();
+    private Socks5MessageParser messageParser = new Socks5MessageParser();
+
+    Socks5ProxyServer(){
         this(STANDART_SOCKS5_PORT);
     }
 
-    Socks5ProxyServer(int port) throws IOException {
+    Socks5ProxyServer(int port){
         this.port = port;
-        selector = Selector.open();
-        socketChannel = ServerSocketChannel.open();
-        socketChannel.configureBlocking(NON_BLOCK_VALUE);
-        socketChannel.socket().bind(new InetSocketAddress(host, this.port));
-        socketChannel.register(selector, SelectionKey.OP_ACCEPT);
-        //dns
-        String[] dnsServers = ResolverConfig.getCurrentConfig().servers();
-        dnsDatagramChannel = DatagramChannel.open();
-        dnsDatagramChannel.configureBlocking(NON_BLOCK_VALUE);
-        //?
-        dnsDatagramChannel.connect(new InetSocketAddress(dnsServers[0], DNS_PORT));
-        dnsDatagramChannel.register(selector, SelectionKey.OP_READ);
     }
 
     @Override
     public void run() {
-        try {
+        try (Selector selector = Selector.open();
+             ServerSocketChannel socketChannel = ServerSocketChannel.open();
+             DatagramChannel dnsDatagramChannel = DatagramChannel.open()) {
+            socketChannel.configureBlocking(NON_BLOCK_VALUE);
+            socketChannel.socket().bind(new InetSocketAddress(host, this.port));
+            socketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            String[] dnsServers = ResolverConfig.getCurrentConfig().servers();
+            dnsDatagramChannel.configureBlocking(NON_BLOCK_VALUE);
+            dnsDatagramChannel.connect(new InetSocketAddress(dnsServers[0], DNS_PORT));
+            dnsDatagramChannel.register(selector, SelectionKey.OP_READ);
+
+            this.selector = selector;
+            this.socketChannel = socketChannel;
+            this.dnsDatagramChannel = dnsDatagramChannel;
+
             while(selector.select() >= 0){
                 Set<SelectionKey> selectionKeySet = selector.selectedKeys();
                 for(SelectionKey selectionKey : selectionKeySet){
                     handleSelectionKey(selectionKey);
                 }
             }
-        } catch(IOException | SocksException ex){
+        } catch(IOException ex){
             ex.printStackTrace();
-        } finally {
-            try {
-                socketChannel.close();
-                dnsDatagramChannel.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-    private void handleSelectionKey(SelectionKey selectionKey) throws IOException, SocksException{
+    private void handleSelectionKey(SelectionKey selectionKey) throws IOException{
         if(selectionKey.isValid()){
-            if(selectionKey.isAcceptable() && selectionKey.channel().equals(socketChannel)){
+            if(selectionKey.isAcceptable()){
                 acceptAndRegister();
             } else if (selectionKey.isConnectable()){
                 ((SocketChannel)selectionKey.channel()).finishConnect();
@@ -91,24 +91,114 @@ public class Socks5ProxyServer implements Runnable, ISocks5ProxyServer, Socks5Co
         SocketChannel newChannel = socketChannel.accept();
         if(newChannel != null){
             newChannel.configureBlocking(NON_BLOCK_VALUE);
-            newChannel.register(selector, SelectionKey.OP_READ);
-            channelConnectionHandlerMap.put(newChannel, new Socks5ProxyConnectionHandler(newChannel, this));
+            newChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE | SelectionKey.OP_CONNECT);
+            socketChannelStateMap.put(newChannel, ConnectionState.ACCEPTED);
         }
     }
 
-    private void readFromSocketChannel(SocketChannel socketChannel) throws IOException, SocksException{
-        ISocks5ConnectionHandler connectionHandler = channelConnectionHandlerMap.get(socketChannel);
-        if(connectionHandler != null){
-            connectionHandler.readClientData();
-        } else {
-            connectionHandler = channelConnectionWithDestMap.get(socketChannel);
-            if(connectionHandler != null){
-                connectionHandler.readDestData();
+    private void readFromSocketChannel(SocketChannel socketChannel) throws IOException{
+        ConnectionState connectionState = socketChannelStateMap.computeIfAbsent(socketChannel, k -> ConnectionState.ACCEPTED);
+        if(connectionState == ConnectionState.ACCEPTED || connectionState == ConnectionState.NEED_CONNECTION){
+            readReqFromClientSocketChannel(socketChannel, connectionState);
+        }
+        if(connectionState == ConnectionState.CONNECTED){
+            readDataFromSocketChannel(socketChannel);
+        }
+    }
+
+    private void readDataFromSocketChannel(SocketChannel socketChannel) throws IOException{
+        SocketChannel connectedChannel = connectionsMap.get(socketChannel);
+        if(connectedChannel.isConnected()){
+            ByteBuffer messageBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+            try {
+                int bytesRead = socketChannel.read(messageBuffer);
+                if(bytesRead > 0){
+                    connectedChannel.write(ByteBuffer.wrap(messageBuffer.array(), 0, bytesRead));
+                }
+                if(bytesRead == -1){
+                    closeSocketChannel(socketChannel);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                closeSocketChannel(socketChannel);
             }
         }
     }
 
-    private void readFromDnsChannel() throws IOException, SocksException{
+
+    private void readReqFromClientSocketChannel(SocketChannel socketChannel, ConnectionState connectionState)
+            throws IOException{
+        ByteBuffer messageBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+        int bytesRead = 0;
+        try {
+            bytesRead = socketChannel.read(messageBuffer);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            closeSocketChannel(socketChannel);
+        }
+        if(bytesRead > 0){
+            if(connectionState == ConnectionState.ACCEPTED
+                    && messagesChecker.isClientGreetingCorrect(messageBuffer)){
+                ByteBuffer responseMessage = messageCreator.createServerGreetingMessage();
+                socketChannel.write(ByteBuffer.wrap(responseMessage.array(), 0,
+                        Socks5MessageCreator.SERVER_GREETINGS_SIZE));
+                socketChannelStateMap.put(socketChannel, ConnectionState.NEED_CONNECTION);
+            } else if(connectionState == ConnectionState.NEED_CONNECTION
+                    && messagesChecker.isClientCommandCorrect(messageBuffer)){
+                connectSocketChannel(socketChannel, messageBuffer);
+            }
+        } else {
+            socketChannelStateMap.remove(socketChannel);
+            closeSocketChannel(socketChannel);
+        }
+    }
+
+    private void connectSocketChannel(SocketChannel socketChannel, ByteBuffer messageBuffer) throws IOException{
+        InetAddress address = messageParser.getAddress(messageBuffer);
+        int port = messageParser.getPort(messageBuffer);
+        if(address != null){
+            connect(address, port, socketChannel);
+        } else {
+            //if DNS
+            Name name = org.xbill.DNS.Name.fromString(messageParser.getDomainName(messageBuffer), Name.root);
+            Record record = Record.newRecord(name, Type.A, DClass.IN);
+            Message dnsMessage = Message.newQuery(record);
+            dnsDatagramChannel.write(ByteBuffer.wrap(dnsMessage.toWire()));
+            int destPort = messageParser.getPort(messageBuffer);
+            dnsMessageIdConnectionReqMap.put(dnsMessage.getHeader().getID(),
+                    new ConnectionReqInfo(socketChannel, destPort));
+        }
+    }
+
+    private void connect(InetAddress address, int port, SocketChannel socketChannel) throws IOException{
+        SocketChannel destinationSocketChannel = SocketChannel.open(new InetSocketAddress(address, port));
+        ByteBuffer connectionAnswer = messageCreator
+                .createServerConnectionResponse(destinationSocketChannel.isConnected(), port);
+        if(!destinationSocketChannel.isConnected()){
+            closeSocketChannel(socketChannel);
+            return;
+        }
+        socketChannel.write(ByteBuffer.wrap(connectionAnswer.array(), 0,
+                Socks5MessageCreator.SERVER_CONNECTION_RESPONSE_SIZE));
+        destinationSocketChannel.configureBlocking(NON_BLOCK_VALUE);
+        destinationSocketChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_CONNECT);
+        connectionsMap.put(destinationSocketChannel, socketChannel);
+        connectionsMap.put(socketChannel, destinationSocketChannel);
+        socketChannelStateMap.put(destinationSocketChannel, ConnectionState.CONNECTED);
+        socketChannelStateMap.put(socketChannel, ConnectionState.CONNECTED);
+    }
+
+    private void closeSocketChannel(SocketChannel socketChannel) throws IOException{
+        SocketChannel relatedChannel = connectionsMap.get(socketChannel);
+        if(relatedChannel != null){
+            relatedChannel.close();
+            connectionsMap.remove(relatedChannel);
+            connectionsMap.remove(socketChannel);
+        }
+        socketChannel.close();
+    }
+
+    private void readFromDnsChannel() throws IOException{
         ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
         int bytesAmount = dnsDatagramChannel.read(byteBuffer);
         if(bytesAmount > 0){
@@ -119,43 +209,16 @@ public class Socks5ProxyServer implements Runnable, ISocks5ProxyServer, Socks5Co
                 if(record instanceof ARecord){
                     ARecord aRecord = (ARecord)record;
                     int id = dnsMessage.getHeader().getID();
-                    ISocks5ConnectionHandler connectionHandler = dnsMessageIdHandlerMap.get(id);
-                    if(connectionHandler != null && aRecord.getAddress() != null){
-                        connectionHandler.connectToAddres(aRecord.getAddress());
+                    InetAddress inetAddress = aRecord.getAddress();
+                    ConnectionReqInfo connectionReqInfo = dnsMessageIdConnectionReqMap.get(id);
+                    if(connectionReqInfo != null && aRecord.getAddress() != null){
+                        connect(inetAddress,
+                                connectionReqInfo.getDestinationPort(),
+                                connectionReqInfo.getChannelToConnect());
                     }
-                    dnsMessageIdHandlerMap.remove(id);
+                    dnsMessageIdConnectionReqMap.remove(id);
                 }
             }
-        }
-    }
-
-    @Override
-    public void makeDnsRequest(String domainName, ISocks5ConnectionHandler connectionHandler)
-            throws IOException {
-        Name name = Name.fromString(domainName, Name.root);
-        Record record = Record.newRecord(name, Type.A, DClass.IN);
-        Message message = Message.newQuery(record);
-        dnsDatagramChannel.write(ByteBuffer.wrap(message.toWire()));
-        dnsMessageIdHandlerMap.put(message.getHeader().getID(), connectionHandler);
-    }
-
-    @Override
-    public int getPort() {
-        return port;
-    }
-
-    @Override
-    public String getAddress() {
-        return host;
-    }
-
-    @Override
-    public void addDestinationSocketChannel(SocketChannel destSocketChannel, ISocks5ConnectionHandler connectionHandler)
-            throws IOException{
-        if(destSocketChannel != null){
-            destSocketChannel.configureBlocking(NON_BLOCK_VALUE);
-            destSocketChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_CONNECT);
-            channelConnectionWithDestMap.put(destSocketChannel, connectionHandler);
         }
     }
 }

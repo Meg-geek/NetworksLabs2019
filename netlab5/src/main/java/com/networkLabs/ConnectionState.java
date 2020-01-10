@@ -1,7 +1,7 @@
 package com.networkLabs;
 
-public enum ClientState {
+public enum ConnectionState {
     ACCEPTED,
-    REGISTERED,
+    NEED_CONNECTION,
     CONNECTED
 }

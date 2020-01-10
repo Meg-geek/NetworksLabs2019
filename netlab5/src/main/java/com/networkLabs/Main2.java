@@ -1,6 +1,6 @@
 package com.networkLabs;
 
-public class Main {
+public class Main2 {
     public static void main(String[] args){
         try{
             Socks5ProxyServer socks5ProxyServer = new Socks5ProxyServer();
