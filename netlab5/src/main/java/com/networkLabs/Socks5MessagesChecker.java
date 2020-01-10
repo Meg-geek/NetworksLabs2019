@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 public class Socks5MessagesChecker implements Socks5Constants{
     private static final int CLIENT_GREETING_MIN_BYTES_AMOUNT = 3;
-    /*version 1 byte + command 1 byte + reserved 1 byte + addres type 1 byte = 4 bytes +
+    /*version 1 byte + command 1 byte + reserved 1 byte + address type 1 byte = 4 bytes +
     destination address min 2 bytes + port number 2 bytes                    = 4 bytes
     = 8 bytes
      */
@@ -15,25 +15,33 @@ public class Socks5MessagesChecker implements Socks5Constants{
         if(greetingBuffer.limit() < CLIENT_GREETING_MIN_BYTES_AMOUNT){
             return false;
         }
-        int version = greetingBuffer.get();
+        byte version = greetingBuffer.get();
         if(version != SOCKS_PROTOCOL_VERSION){
             return false;
         }
         int authNumb = greetingBuffer.get();
-        int authMethod = greetingBuffer.get();
-        return (authNumb == AUTH_NUMB && authMethod == NO_AUTH);
+        while(authNumb > 0){
+            int authMethod = greetingBuffer.get();
+            if(authMethod == NO_AUTH){
+                return true;
+            }
+            authNumb--;
+        }
+        return false;
     }
 
-    boolean isClientConnectionReqCorrect(ByteBuffer connectionReqBuf){
-        connectionReqBuf.flip();
-        if(connectionReqBuf.limit() < CLIENT_GREETING_MIN_BYTES_AMOUNT){
+    boolean isClientCommandCorrect(ByteBuffer commandBuffer){
+        commandBuffer.flip();
+        if(commandBuffer.limit() < CLIENT_CONNECTION_REQ_MIN_BYTES_LENGTH){
             return false;
         }
-        int version = connectionReqBuf.get();
-        int commandCode = connectionReqBuf.get();
-        int reserved = connectionReqBuf.get();
+        int version = commandBuffer.get();
+        int commandCode = commandBuffer.get();
+        int reserved = commandBuffer.get();
+        int addressType = commandBuffer.get();
         return version == SOCKS_PROTOCOL_VERSION &&
                 commandCode == COMMAND_ESTABLISH_TCP_IP_CONNECTION &&
-                reserved == RESERVED_FIELD;
+                reserved == RESERVED_FIELD &&
+                (addressType == IPV4_ADDRESS || addressType == DOMAIN_NAME_ADDRESS);
     }
 }
