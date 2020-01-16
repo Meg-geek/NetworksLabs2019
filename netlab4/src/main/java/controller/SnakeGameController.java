@@ -19,7 +19,6 @@ import java.util.List;
 
 public class SnakeGameController implements Controller {
     private View gameView;
-    private String userName;
     private App snakeGameApp;
 
     public SnakeGameController(){
@@ -34,7 +33,6 @@ public class SnakeGameController implements Controller {
         } catch(IOException ex){
             throw new RuntimeException(ex);
         }
-        this.userName = userName;
     }
 
     @Override
@@ -44,7 +42,9 @@ public class SnakeGameController implements Controller {
 
     @Override
     public void quit() {
-        snakeGameApp.quit();
+        if(snakeGameApp != null){
+            snakeGameApp.quit();
+        }
     }
 
     @Override

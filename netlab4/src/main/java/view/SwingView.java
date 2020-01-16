@@ -36,7 +36,9 @@ public class SwingView implements View {
     }
 
     void quit(){
-        gameController.quit();
+        if(gameController != null){
+            gameController.quit();
+        }
     }
 
     @Override

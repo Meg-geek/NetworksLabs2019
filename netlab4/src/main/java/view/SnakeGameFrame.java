@@ -5,6 +5,8 @@ import model.networkUtils.GameNetworkSettings;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.List;
 
 class SnakeGameFrame extends JFrame {
@@ -33,7 +35,14 @@ class SnakeGameFrame extends JFrame {
         setLocationRelativeTo(null);
         setTitle(TITLE);
         setResizable(false);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                quit();
+                e.getWindow().dispose();
+                System.exit(0);
+            }
+        });
        // getContentPane().setBackground(BACKGROUND_COLOR);
         setContentPane(new HelloPanel(this));
         //getContentPane().add(new HelloPanel(), BorderLayout.CENTER);
@@ -76,7 +85,9 @@ class SnakeGameFrame extends JFrame {
  */
 
     void quit(){
-        swingView.quit();
+        if(swingView != null){
+            swingView.quit();
+        }
     }
 
     void updateGame(int gameStateOrder,
