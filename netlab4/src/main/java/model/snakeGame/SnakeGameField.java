@@ -42,8 +42,15 @@ public class SnakeGameField implements GameField {
         this(settings);
         gameStateOrder.set(state.getStateOrder());
         this.playersList = state.getPlayersList();
-        fieldManager.setFoodList(state.getFoodList());
         this.snakesList = state.getSnakesList();
+        fieldManager.setFoodList(state.getFoodList());
+        for(SnakeI snakeI : this.snakesList){
+            Snake snake = new Snake(snakeI.getCoordinatesList(),
+                    snakeI.getPlayerID(),
+                    fieldHelper);
+            IDSnakeMap.put(snakeI.getPlayerID(), snake);
+            fieldManager.addSnake(snake);
+        }
     }
 
 
@@ -93,7 +100,11 @@ public class SnakeGameField implements GameField {
 
     @Override
     public GameState getState() {
-        return new SnakeGameState(gameStateOrder.get(), new ArrayList<>(IDSnakeMap.values()),
+        if(IDSnakeMap.size() > 0){
+            return new SnakeGameState(gameStateOrder.get(), new ArrayList<>(IDSnakeMap.values()),
+                    fieldManager.getFoodList(), playersList);
+        }
+        return new SnakeGameState(gameStateOrder.get(), snakesList,
                 fieldManager.getFoodList(), playersList);
     }
 
@@ -174,5 +185,16 @@ class SnakeGameState implements model.game.GameState {
     @Override
     public List<Coordinates> getFoodList() {
         return foodList;
+    }
+
+    @Override
+    public int getMaxID() {
+        int maxId = 0;
+        for(SnakeGamePlayerI playerI : playersList){
+            if(playerI.getID() > maxId){
+                maxId = playerI.getID();
+            }
+        }
+        return maxId;
     }
 }

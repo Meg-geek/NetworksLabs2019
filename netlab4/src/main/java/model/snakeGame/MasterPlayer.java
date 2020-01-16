@@ -19,14 +19,30 @@ public class MasterPlayer extends MasterNode {
                 user.getIP(), user.getPort(), NodeRole.MASTER);
     }
 
+    //create ourself when we are master and starting a new game
+    MasterPlayer(NetworkUser user, int id){
+        this.master = new SnakeGamePlayer(id, user.getName(), 0,
+                user.getIP(), user.getPort(), NodeRole.MASTER);
+    }
+
     @Override
     public int getID() {
         return master.getID();
     }
 
     @Override
+    public void setID(int newID) {
+        master.setID(newID);
+    }
+
+    @Override
     public String getName() {
         return master.getName();
+    }
+
+    @Override
+    public void setName(String name) {
+        master.setName(name);
     }
 
     @Override
@@ -65,6 +81,11 @@ public class MasterPlayer extends MasterNode {
     @Override
     public String getIP() {
         return master.getIP();
+    }
+
+    @Override
+    public void setIp(String ip) {
+        master.setIp(ip);
     }
 
     @Override

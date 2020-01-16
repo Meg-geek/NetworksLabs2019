@@ -13,17 +13,35 @@ public class SnakeGamePlayer implements SnakeGamePlayerI {
     private Date lastActivity = new Date();
 
     public SnakeGamePlayer(int id, String name, int score, String ip, int port, NodeRole role){
+        this(name, port);
         this.id = id;
-        this.name = name;
         this.score = score;
         this.ip = ip;
-        this.port = port;
         this.role = role;
+    }
+
+    SnakeGamePlayer(String name, int port){
+        this.name = name;
+        this.port = port;
+        role = null;
+        ip = null;
+    }
+
+    SnakeGamePlayer(String name){
+        this.name = name;
     }
 
     @Override
     public String getIP() {
+        if(ip == null){
+            return "";
+        }
         return ip;
+    }
+
+    @Override
+    public void setIp(String ip) {
+        this.ip = ip;
     }
 
     @Override
@@ -34,6 +52,11 @@ public class SnakeGamePlayer implements SnakeGamePlayerI {
     @Override
     public int getID() {
         return id;
+    }
+
+    @Override
+    public void setID(int newID) {
+        this.id = newID;
     }
 
     @Override
@@ -59,6 +82,11 @@ public class SnakeGamePlayer implements SnakeGamePlayerI {
     @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override

@@ -19,6 +19,17 @@ public class Settings implements GameNetworkSettings, GameSettings {
         foodPerPlayer = fieldFoodPerPlayer.getDefaultValue();
     }
 
+    public Settings(GameSettings gameSettings, GameNetworkSettings gameNetworkSettings){
+        this.width = gameSettings.getWidth();
+        this.height = gameSettings.getHeight();
+        this.foodPerPlayer = gameSettings.getFoodPerPlayer();
+        this.deadFoodProb = gameSettings.getDeadFoodProb();
+        this.stateDelayMS = gameSettings.getStateDelayMS();
+        this.pingDelayMS = gameNetworkSettings.getPingDelayMs();
+        this.nodeTimeoutMS = gameNetworkSettings.getNodeTimeoutMs();
+        this.foodStatic = gameSettings.getFoodStatic();
+    }
+
     @Override
     public void setWidth(int width) {
         if(width >= fieldWidth.getMinValue() && width <= fieldWidth.getMaxValue()){

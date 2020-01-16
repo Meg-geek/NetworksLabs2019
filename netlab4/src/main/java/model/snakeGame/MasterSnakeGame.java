@@ -76,7 +76,8 @@ public class MasterSnakeGame implements NetworkGame {
                INIT_DELAY_MS,
                gameSettings.getStateDelayMS(),
                TimeUnit.MILLISECONDS);
-       scheduledThreadPool.scheduleWithFixedDelay(() -> app.sendMulticastMessage(getAnnouncment()), GameNetworkSettings.MULTICAST_INTERVAL_S, GameNetworkSettings.MULTICAST_INTERVAL_S, TimeUnit.SECONDS);
+       scheduledThreadPool.scheduleWithFixedDelay(() -> app.sendMulticastMessage(getAnnouncment()),
+               GameNetworkSettings.MULTICAST_INTERVAL_S, GameNetworkSettings.MULTICAST_INTERVAL_S, TimeUnit.SECONDS);
         scheduledThreadPool.scheduleWithFixedDelay(()->{
                     long nowTime = new Date().getTime();
                     for(NetworkUser user : idUserMap.values()){
